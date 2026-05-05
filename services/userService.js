@@ -1,8 +1,13 @@
-const User = require('../models/userModel');
+
+
+const user = require('../models/userModel');
 
 const createUser = async (userData) => {
-  const user = new User(userData);
-  return await user.save();
+  console.log(userData);
+  console.log(user);
+   console.log(user.save(userData));
+  // const user = new User(userData);
+  return await user.save(userData);
 };
 
 module.exports = { createUser };
