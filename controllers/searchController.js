@@ -13,7 +13,7 @@ exports.search = async (req, res, next) => {
       return res.status(400).json({ error: 'keyword 参数不能为空' });
     }
 
-    const results = await vipService.searchGoods(keyword, page, pageSize, openid, chanTag);
+    const results = await vipService.searchGoods({keyword, page, pageSize, openid, chanTag});
 
     res.json({ success: true, data: results, count: results.length });
   } catch (err) {

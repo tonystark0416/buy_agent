@@ -72,7 +72,7 @@ async function vipOpenApiRequest(service, method, bisData) {
     //第三步，发送请求
     try {
         const response = await axios.post('https://vop.vipapis.com/?' + getQueryString(sysData), bisData)
-        console.log(response.data);
+        // console.log(response.data);
         const result = response.data;
         return result; //返回对象
     } catch (error) {
@@ -92,7 +92,7 @@ async function vipOpenApiRequest(service, method, bisData) {
  * @param {*} chanTag 
  * @returns 
  */
-async function searchGoods(keyword, page, pageSize, openid, chanTag) {
+async function searchGoods({keyword, page, pageSize, openid, chanTag}) {
     const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
     const method = 'query';
     const bisData = {
@@ -107,10 +107,10 @@ async function searchGoods(keyword, page, pageSize, openid, chanTag) {
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
+    // console.log(response);
     return response;
 
 }
-
 
 /**
  * vip cps商品营销信息接口，获取商品的市场价、佣金等信息

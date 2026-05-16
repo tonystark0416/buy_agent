@@ -5,7 +5,6 @@ const aiService = require('../services/aiService');
 exports.chat = async (req, res) => {
 
     const { messages } = req.body;
-    console.log('今次发送的内容：' + JSON.stringify(messages));
 
     //发送事件
     const sendEvent = (event, data) => {
@@ -28,9 +27,9 @@ exports.chat = async (req, res) => {
 
     try {
         // 流式调用 AI，每得到一个 token 就通过 SSE 推送
-        await aiService.aiChat(messages, (token) => {
-            console.log('Received token:', token);
-            sendEvent('token', { content: token });
+        await aiService.aiChat(messages, (eventType,data) => {
+            // console.log('Received token:', token);
+            sendEvent(eventType,data);
         });
         // 完成
         sendEvent('done', { message: '回复完成' });
