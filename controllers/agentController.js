@@ -28,11 +28,11 @@ exports.chat = async (req, res) => {
     try {
         // 流式调用 AI，每得到一个 token 就通过 SSE 推送
         await aiService.aiChat(messages, (eventType,data) => {
-            // console.log('Received token:', token);
+            console.log(eventType,data);
             sendEvent(eventType,data);
         });
         // 完成
-        sendEvent('done', { message: '回复完成' });
+        // sendEvent('done', { message: '回复完成' });
     } catch (error) {
         console.error('DeepSeek API 错误:', error);
         sendEvent('error', { message: err.message || '服务器内部错误' });

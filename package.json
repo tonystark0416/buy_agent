@@ -19,6 +19,7 @@
     "express": "^5.2.1",
     "express-generator": "^4.16.1",
     "moment": "^2.30.1",
+    "mysql2": "^3.22.3",
     "openai": "^6.35.0"
   },
   "devDependencies": {
