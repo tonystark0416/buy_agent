@@ -1,24 +1,30 @@
-// const mongoose = require('mongoose');
+/**
+ * @author: liuweizhao
+ * @date: 2025-12-10 15:12:00
+ * @last author: liuweizhao
+ * @last date: 2025-12-10 15:12:00 
+ */
 
-// const userSchema = new mongoose.Schema({
-//   name: { type: String, required: true },
-//   email: { type: String, required: true, unique: true },
-//   password: { type: String, required: true },
-// });
+// models/User.js
 
-// const User = mongoose.model('User', userSchema);
+const pool = require('../config/database.js');
 
-const save = (userData) => {
-
-      let ob = {
-        name: 'mike',
-        email: '406599358@qq.com',
-        msg: '用户成功'
-      }
-      return  ob
-};
-
-module.exports = {
-  save
+async function findByPhone([phone]) {
+    const [rows] = await pool.execute('SELECT * FROM adp_user WHERE phone = ?', [phone]);
+    return rows[0] || null;
 }
 
+async function createUser({ phone, password =null}) {
+    const [result] = await pool.execute('INSERT INTO adp_user (phone, password) VALUES (?, ?)', [phone, password]);
+    return { id: result.insertId, phone};
+}
+
+async function updatePassword(phone, password) {
+  await pool.execute('UPDATE adp_user SET password = ? WHERE phone = ?', [password, phone]);
+}
+
+module.exports = {
+    findByPhone,
+    createUser,
+    updatePassword
+};
