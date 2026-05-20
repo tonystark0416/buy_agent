@@ -22,7 +22,7 @@ app.use('/api/giftCoupons', giftCouponRoutes);  // 礼品券相关路由
 
 app.get('/', (req, res) => {
     console.log('log here')
-    res.send('Hello, World111!');
+    res.send('Hello, World!');
 })
 
 app.use((err, req, res, next) => {
