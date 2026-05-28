@@ -102,7 +102,7 @@ async function pddOpenApiRequest(type, bisData) {
 
 
 /**
- * vip cps搜索接口
+ * 拼多多 cps搜索接口
  * @param {*} keyword 
  * @param {*} page 
  * @param {*} pageSize 
@@ -110,8 +110,7 @@ async function pddOpenApiRequest(type, bisData) {
  * @param {*} chanTag 
  * @returns 
  */
-async function searchGoods(activity_tags,page,page_size) {
-
+async function searchGoods(activity_tags, page, page_size) {
     const type = 'pdd.ddk.goods.search';
     const bizParams = {
         activity_tags: activity_tags,
@@ -119,10 +118,32 @@ async function searchGoods(activity_tags,page,page_size) {
         page_size: page_size
     }
     const response = await pddOpenApiRequest(type, bizParams);
-    // console.log(response);
     return response;
-
 }
+
+/**
+ * 
+ * @returns 
+ */
+async function pddAuthUid() {
+    const type = 'pdd.ddk.rp.prom.url.generate';
+    const bizParams = {
+        channel_type: 10
+    }
+    const response = await pddOpenApiRequest(type, bizParams);
+    return response;
+}
+pddAuthUid().then(res => {
+    console.log('授权结果：', res);
+}).catch(err => {
+    console.error('授权错误：', err);
+})
+
+// searchGoods('[4]', 1, 10).then(res => {
+//     console.log('搜索结果：', res);
+// }).catch(err => {
+//     console.error('搜索错误：', err);
+// })
 
 // searchGoods('[4]', 1, 10).then(res => {
 //     console.log(res.goods_search_response);
@@ -131,5 +152,6 @@ async function searchGoods(activity_tags,page,page_size) {
 // })
 
 module.exports = {
-    searchGoods
+    searchGoods,
+    pddAuthUid
 }
