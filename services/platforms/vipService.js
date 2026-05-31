@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const axios = require('axios');
+const { stat } = require('fs');
 
 
 /* 
@@ -92,7 +93,8 @@ async function vipOpenApiRequest(service, method, bisData) {
  * @param {*} chanTag 
  * @returns 
  */
-async function searchGoods({keyword, page, pageSize, openid, chanTag}) {
+async function searchGoods({ keyword, page, pageSize, openid, chanTag }) {
+    // console.log('调用 VIP 搜索接口，参数：', {keyword, page, pageSize, openid, chanTag});
     const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
     const method = 'query';
     const bisData = {
@@ -107,7 +109,6 @@ async function searchGoods({keyword, page, pageSize, openid, chanTag}) {
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    // console.log(response);
     return response;
 
 }
@@ -117,7 +118,7 @@ async function searchGoods({keyword, page, pageSize, openid, chanTag}) {
  * @param {*} goodsId 
  * @param {*} openid 
  * @param {*} chanTag 
- * @returns 
+ * @returns  
  */
 async function getGoodsMarketPrice(goodsId, openid, chanTag) {
     const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
@@ -136,20 +137,93 @@ async function getGoodsMarketPrice(goodsId, openid, chanTag) {
 }
 
 
+/**
+* vip cps 生成推广链接接口，根据【商品ID】生成推广链接  
+* @param {*} goodsId 
+* @param {*} openid 
+* @param {*} chanTag 
+* @returns 返回连接数组
+ */
+async function genByGoodsId({ goodsId, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }) {
+    const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
+    const method = 'genByGoodsId';
+    const bisData = {
+        requestId: "mike" + Date.parse(new Date()),
+        goodsIdList: [goodsId],
+        chanTag: chanTag || 'defaultChanTag',            //推广位pid
+        statParam: statParam || "defaultStat",          //自定义统计参数，选填
+        genShortUrl: true,                              //是否生成短链接，默认为true
+        urlGenByGoodsIdRequest: {
+            openId: openId || 'defaultOpenId',          //用户唯一标识,接口必传
+            realCall: true,
+            genAuthorityUrl: genAuthorityUrl,          //是否生成授权链接，默认为false
+            adCode: "unionapi",
+            giftCode: giftCode || '',           //礼金码，选填，genByGoodsId接口支持传入礼金码参数，如果传入了礼金码参数，
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result?.urlInfoList;
+}
+
+
+
+/**
+* vip cps 生成推广链接接口，根据【唯品会连接】生成推广链接  
+* @param {*} urlList 
+* @param {*} openid 
+* @param {*} chanTag 
+* @returns 返回连接数组
+*/
+async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }) {
+    const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
+    const method = 'genByVIPUrl';
+    const bisData = {
+        requestId: "mike" + Date.parse(new Date()),
+        urlList: [urlList],
+        chanTag: chanTag || 'defaultChanTag',            //推广位pid
+        statParam: statParam || "defaultStat",          //自定义统计参数，选填                               
+        urlGenRequest: {
+            openId: openId || 'defaultOpenId',    //用户唯一标识,接口必传
+            genShortUrl: true,                   //是否生成短链接，默认为true
+            realCall: true,
+            genAuthorityUrl: genAuthorityUrl,          //是否生成授权链接，默认为false
+            adCode: "unionapi",
+            giftCode: giftCode || '',         //礼金码，选填，genByGoodsId接口支持传入礼金码参数，如果传入了礼金码参数，
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result?.urlInfoList;
+}
+
+
+
+/**
+ * 唯品会礼金功能
+ * @param {*} goodsId 
+ * @param {*} giftName 
+ * @param {*} amount 
+ * @param {*} totalCount 
+ * @param {*} activityStartTime 
+ * @param {*} activityEndTime 
+ * @param {*} useTimeType 
+ * @param {*} singleClaimPerLink 
+ * @param {*} allSkusUnderProduct 
+ * @returns 
+ */
 async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityStartTime, activityEndTime, useTimeType, singleClaimPerLink, allSkusUnderProduct) {
     const service = 'com.vip.adp.api.open.service.UnionGiftCouponService';
     const method = 'createGiftCoupon';
-        const bisData = {
+    const bisData = {
         request: {
             goodsId: goodsId,
             giftName: giftName,
-            amount:amount,
+            amount: amount,
             totalCount: totalCount,
-            activityStartTime: activityStartTime,
+            activityStartTime: activityStartTime,       //2026-06-03 00:00:00
             activityEndTime: activityEndTime,
             useTimeType: useTimeType,
-            singleClaimPerLink:singleClaimPerLink, //每个礼金推广链接是否限制仅可领取1张礼金：0不限，1限制
-            allSkusUnderProduct: allSkusUnderProduct, //是否绑定同spu商品(1-是; 0-否)，扩展到这款商品的全部颜色，如，口红的全部色号、衣服的全部颜色。
+            singleClaimPerLink: singleClaimPerLink,     //每个礼金推广链接是否限制仅可领取1张礼金：0不限，1限制
+            allSkusUnderProduct: allSkusUnderProduct,   //是否绑定同spu商品(1-是; 0-否)
             requestId: "mike" + Date.parse(new Date()),
         }
     }
@@ -159,9 +233,42 @@ async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityS
 
 
 
-module.exports = {
-    // getGoodsList,
-    createGiftCoupon,
-    getGoodsMarketPrice,
-    searchGoods
+
+/**
+ * 订单接口，获取CPS推广订单
+ * @param {*} orderTimeStart  2026-05-03 11:00:00
+ * @param {*} orderTimeEnd  2026-05-03 12:00:00
+ * @returns 返回订单列表数组
+ * 订单接口的调用频率限制：每个应用每分钟调用不超过10次，每次调用返回的数据量不超过100条。
+ */
+async function orderList({ status, orderTimeStart, orderTimeEnd }) {
+    const service = 'com.vip.adp.api.open.service.UnionOrderV2Service';
+    const method = 'orderList';
+    const bisData = {
+        queryModel: {
+            status: status,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
+            orderTimeStart: Date.parse(new Date(orderTimeStart)),
+            orderTimeEnd: Date.parse(new Date(orderTimeEnd)),
+            page: 1,
+            pageSize: 10,
+            requestId: "mike" + Date.parse(new Date()),
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result;
 }
+
+
+module.exports = { getGoodsMarketPrice, searchGoods, genByGoodsId, createGiftCoupon, orderList }
+
+// 调试代码
+let obj = {
+    status: 1,
+    orderTimeStart: '2026-05-28 20:00:00',
+    orderTimeEnd: '2026-05-28 21:00:00'
+}
+orderList(obj).then(res => {
+    console.log(res);
+}).catch(err => {
+    console.error(err);
+})

@@ -17,19 +17,6 @@ const sysConfig = {
     appSecret: 'f0f18444e059e84c7fad35ee85fcb4fd9f76fabe',
 }
 
-// const sysParam = {
-//     type: 'pdd.ddk.goods.search',
-//     client_id: sysConfig.client_id,
-//     // timestamp: Date.parse(new Date()) / 1000
-//     data_type: "JSON",
-//     timestamp: 1779987135
-// }
-
-// const bisParam = {
-//     "activity_tags": "[4,7]",
-// }
-
-
 /**
  * 签名函数
  * @param {*} sysParam 
@@ -48,17 +35,12 @@ function getSign(sysParam, bisParam) {
         result += key + value;
     }
     result = sysConfig.appSecret + result + sysConfig.appSecret;
-    console.log(result);
+    // console.log(result);
     const md5 = crypto.createHash('md5').update(result).digest('hex');
-    console.log(md5.toUpperCase());
+    // console.log(md5.toUpperCase());
     return md5.toUpperCase();
 
 }
-
-
-
-
-
 
 
 /**
@@ -81,18 +63,13 @@ async function pddOpenApiRequest(type, bisData) {
     //第二步，计算签名
     const sign = getSign(sysParam, bisData);
 
-    const bizParams = {
-        ...bisData,
-        ...sysParam,
-        sign: sign
-    }
-
+    //组装post请求体
+    const bizParams = {...bisData, ...sysParam, sign: sign }
+    
     //第三步，发送请求
     try {
         const response = await axios.post('https://gw-api.pinduoduo.com/api/router', bizParams)
-        console.log(response.data);
-        const result = response.data;
-        return result; //返回对象
+        return response.data; //返回对象
     } catch (error) {
         console.error(error)
         throw error; // 抛出错误以便调用者处理
@@ -110,48 +87,56 @@ async function pddOpenApiRequest(type, bisData) {
  * @param {*} chanTag 
  * @returns 
  */
-async function searchGoods(activity_tags, page, page_size) {
+async function searchGoods({activity_tags,keyword, page, page_size,pid }) {
+    // console.log('调用拼多多搜索接口，参数：', {activity_tags,keyword, page, page_size,pid });
     const type = 'pdd.ddk.goods.search';
+
     const bizParams = {
-        activity_tags: activity_tags,
+        block_cat_packages:'[1,2,3,4,5]', //屏蔽类目
         page: page,
-        page_size: page_size
+        page_size: page_size,
+        keyword: keyword,
+        // custom_parameters: custom_parameters,
+        pid: pid,
     }
+
+    //活动标记，看看是否有传入
+    if (activity_tags) {
+        bizParams.activity_tags = activity_tags;
+    }
+
     const response = await pddOpenApiRequest(type, bizParams);
+    // console.log('拼多多服务搜索接口响应：', response);
     return response;
 }
 
-/**
- * 
- * @returns 
- */
-async function pddAuthUid() {
-    const type = 'pdd.ddk.rp.prom.url.generate';
-    const bizParams = {
-        channel_type: 10
-    }
-    const response = await pddOpenApiRequest(type, bizParams);
-    return response;
-}
-pddAuthUid().then(res => {
-    console.log('授权结果：', res);
-}).catch(err => {
-    console.error('授权错误：', err);
-})
 
-// searchGoods('[4]', 1, 10).then(res => {
-//     console.log('搜索结果：', res);
-// }).catch(err => {
-//     console.error('搜索错误：', err);
-// })
 
-// searchGoods('[4]', 1, 10).then(res => {
-//     console.log(res.goods_search_response);
+
+// let obj = {
+//     page: 1,
+//     page_size: 10,
+//     keyword: '坚果',
+//     pid:'44439853_316094909',
+//     activity_tags: '[4]'
+// }
+// searchGoods(obj).then(res => {
+//     const items = res?.goods_search_response?.goods_list || [];
+//     console.log(items);
+//     // for (const item of items) {
+//     //     console.log('商品名称：', item.goods_name);
+//     //     console.log('价格：', item.activity_tags);
+//     // }
 // }).catch(err => {
 //     console.error(err);
 // })
 
+
+
+
+
+
 module.exports = {
     searchGoods,
-    pddAuthUid
+    // pddAuthUid
 }

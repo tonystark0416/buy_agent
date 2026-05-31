@@ -7,39 +7,75 @@
 const vipService = require('../services/platforms/vipService');
 const pddService = require('../services/platforms/pddService');
 
+
 /**
- * 搜索接口，聚合各平台的搜索结果
- * @param {*} keyword 
- * @param {*} page 
- * @param {*} pageSize 
- * @param {*} uid 
- * @param {*} pid 
+ * 格式化唯品会的商品数据为统一格式
+ * @param {*} item 
  * @returns 
  */
-async function searchGoods({platform, keyword, page, pageSize, uid, pid}) {
+function normalizeVipItem(item) {
+    return {
+        id: item.goodsId,
+        title: item.goodsName,
+        price: item.vipPrice,
+        imageUrl: item.goodsMainPicture,
+        commission: item.commissionRate || 0,
+        platform: 'vip',
+        // 其他需要的字段
+    }
+}
+
+/**
+ * 格式化拼多多的商品数据为统一格式
+ * @param {*} item 
+ * @returns 
+ */
+function normalizePddItem(item) {
+    return {
+        id: item.goods_sign,
+        title: item.goods_name,
+        price: item.min_group_price,
+        imageUrl: item.goods_image_url,
+        commission: item.promotion_rate || 0,
+        platform: 'pdd',
+        // 其他需要的字段
+    }
+}
+
+/**
+ * 多平台搜索接口，聚合结果，合并返回
+ * @param {*} param0 
+ * @returns 
+ */
+async function multipleSearchGoods({ activity_tags, keyword, page = 1, pageSize = 10, uid, pid, sources = ['vip', 'pdd'] }) {
 
     // 这里可以根据需要调用不同平台的搜索接口，目前示例调用了 VIP 的搜索接口
-    if (platform === 'vip') {
-        const vipResults = await vipService.searchGoods({keyword, page, pageSize, openid: uid, chanTag: pid});
-        return vipResults;
-    } else if (platform === 'pdd') {
-        const pddResults = await pddService.searchGoods({activity_tags: '[4]', page, page_size: pageSize});
-        return pddResults;
+    const promises = [];
+    if (sources.includes('vip')) {
+        const vipResults = vipService.searchGoods({ keyword, page, pageSize, openid: uid, chanTag: pid });
+        promises.push(vipResults);
     }
+    if (sources.includes('pdd')) {
+        const pddResults = pddService.searchGoods({ activity_tags, keyword, page, page_size: pageSize, pid });
+        promises.push(pddResults);
+    }
+    const [vipRes, pddRes] = await Promise.all(promises); //顺序要一致
 
-    // 这里可以对结果进行合并、排序等处理，目前示例直接返回 VIP 的结果
+    const vipItems = vipRes.result?.goodsInfoList?.map(normalizeVipItem) || [];
+    const pddItems = pddRes.goods_search_response?.goods_list?.map(normalizePddItem) || [];
+
+    const merged = [...vipItems, ...pddItems]; //合并两个转换后的结果
+    // console.log(merged)
+    const total = merged.length;
+
+    return {
+        page,
+        total,
+        items: merged
+    };
 }
 
-const req = {
-    platform: 'vip',
-    keyword: '手机',
-    page: 1,
-    pageSize: 10,
-    uid: 'user123',
-    pid: 'pid123'
+
+module.exports = {
+    multipleSearchGoods,
 }
-searchGoods(req).then(res => {
-    console.log('搜索结果：', res);
-}).catch(err => {
-    console.error('搜索错误：', err);
-})

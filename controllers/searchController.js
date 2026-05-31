@@ -4,17 +4,16 @@
  * @author liuweizhao
  * @date 2024-06-01 
  */
-const vipService = require('../services/platforms/vipService');
-const pddService = require('../services/platforms/pddService');
+const multipleSearchGoods = require('../services/searchService').multipleSearchGoods;
 
 exports.search = async (req, res, next) => {
   try {
-    const { keyword, page, pageSize, openid, chanTag } = req.query;
+    const { keyword, page, uid, pid } = req.query;
     if (!keyword) {
       return res.status(400).json({ error: 'keyword 参数不能为空' });
     }
 
-    const results = await vipService.searchGoods({keyword, page, pageSize, openid, chanTag});
+    const results = await multipleSearchGoods(req.query);
 
     res.json({ success: true, data: results, count: results.length });
   } catch (err) {
