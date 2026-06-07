@@ -5,18 +5,9 @@
 
 const crypto = require('crypto');
 const axios = require('axios');
-const { stat } = require('fs');
+const config = require('../../config/config.js');
 
 
-/* 
-系统级参数，所有接口共享，一样的
-appkey,唯品会联盟应用key
-appSecret，唯品会联盟应用密钥
-*/
-const sysConfig = {
-    appKey: 'e469a836',
-    appSecret: 'ED75FDEC715DB364966E8BF085731917',
-}
 
 /**
  * 签名工具（HMAC-MD5，符合 VOP 官方规范）
@@ -61,8 +52,8 @@ async function vipOpenApiRequest(service, method, bisData) {
         service: service,
         format: 'JSON',
         method: method,
-        appKey: sysConfig.appKey,       // 这里直接使用全局配置的 appKey
-        appSecret: sysConfig.appSecret,     // 这里直接使用全局配置的 appSecret
+        appKey: config.vip_cps_key.appKey,       // 这里直接使用全局配置的 appKey
+        appSecret: config.vip_cps_key.appSecret,     // 这里直接使用全局配置的 appSecret
         version: '2.0.0',
         timestamp: Date.parse(new Date()) / 1000
     }
@@ -81,6 +72,74 @@ async function vipOpenApiRequest(service, method, bisData) {
         throw error; // 抛出错误以便调用者处理
     }
 }
+
+
+// ================= 各种API的实现对接=================
+
+
+/**
+ * 检查用户是否绑定了唯品会联盟账号
+ * @param {String} openId - 用户的唯一标识
+ * @returns {number} 是否已授权唯品会，0-未授权，1-已授权
+ */
+async function checkUser(openId) {
+    const service = 'com.vip.adp.api.open.service.UnionUserV2Service';
+    const method = 'checkUser';
+    const bisData = {
+        request: {
+            openId: openId,
+            requestId: "mike" + Date.parse(new Date()),
+            scene: 2
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result?.result
+}
+
+
+/**
+ * 解绑授权账号
+ * @param {String} openId - 用户的唯一标识
+ * @returns {object} 解绑结果 -1,没找到openid，1，解绑成功 / openId授权关系重复解绑
+ */
+async function unbindOpenId(openId) {
+    const service = 'com.vip.adp.api.open.service.UnionUserV2Service';
+    const method = 'unbindOpenId';
+    const bisData = {
+        request: {
+            openId: openId,
+            requestId: "mike" + Date.parse(new Date()),
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result
+}
+
+
+
+
+/**
+ * 获取授权链接
+ * @param {String} openId - 用户的唯一标识
+ * @returns {object} 授权链接URL,包含各种链接格式的url
+ */
+async function getAuthUrl(openId) {
+    const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
+    const method = 'getChannelUrlByType';
+    const bisData = {
+        request: {
+            type: "BIND_FILING_LINK",
+            chanTag: "default_pid",
+            requestId: "mike" + Date.parse(new Date()),
+            compressShortUrl: true,
+            openId: openId,
+            realCall: true
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response?.result?.data || null;
+}
+
 
 
 
@@ -241,7 +300,7 @@ async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityS
  * @returns 返回订单列表数组
  * 订单接口的调用频率限制：每个应用每分钟调用不超过10次，每次调用返回的数据量不超过100条。
  */
-async function orderList({ status, page,pageSize,orderTimeStart, orderTimeEnd }) {
+async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd }) {
     const service = 'com.vip.adp.api.open.service.UnionOrderV2Service';
     const method = 'orderList';
     const bisData = {
@@ -259,18 +318,14 @@ async function orderList({ status, page,pageSize,orderTimeStart, orderTimeEnd })
 }
 
 
-module.exports = { getGoodsMarketPrice, searchGoods, genByGoodsId, createGiftCoupon, orderList }
+module.exports = {
+    getGoodsMarketPrice,
+    searchGoods,
+    genByGoodsId,
+    createGiftCoupon,
+    orderList,
+    checkUser,
+    getAuthUrl,
+    unbindOpenId
+}
 
-// 调试代码
-// let obj = {
-//     // status: 1,
-//     orderTimeStart: '2026-05-28 20:00:00',
-//     orderTimeEnd: '2026-05-28 21:00:00',
-//     page:1,
-//     pageSize:20
-// }
-// orderList(obj).then(res => {
-//     console.log(res);
-// }).catch(err => {
-//     console.error(err);
-// })

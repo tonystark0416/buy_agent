@@ -5,17 +5,7 @@
 
 const crypto = require('crypto');
 const axios = require('axios');
-
-
-/* 
-系统级参数，所有接口共享，一样的
-appkey,多多联盟应用key
-appSecret，多多联盟应用密钥
-*/
-const sysConfig = {
-    client_id: 'b1409cfff76d49e0823c68b59fb64367',
-    appSecret: 'f0f18444e059e84c7fad35ee85fcb4fd9f76fabe',
-}
+const config = require('../../config/config.js');
 
 /**
  * 签名函数
@@ -34,7 +24,7 @@ function getSign(sysParam, bisParam) {
         let value = params[key];
         result += key + value;
     }
-    result = sysConfig.appSecret + result + sysConfig.appSecret;
+    result = config.pdd_cps_key.appSecret + result + config.pdd_cps_key.appSecret;
     // console.log(result);
     const md5 = crypto.createHash('md5').update(result).digest('hex');
     // console.log(md5.toUpperCase());
@@ -54,7 +44,7 @@ async function pddOpenApiRequest(type, bisData) {
     //第一步，构建系统参数
     const sysParam = {
         type: type,
-        client_id: sysConfig.client_id,
+        client_id: config.pdd_cps_key.client_id,
         timestamp: Date.parse(new Date()) / 1000,
         data_type: "JSON",
         // timestamp: 1779991567
@@ -138,5 +128,4 @@ async function searchGoods({activity_tags,keyword, page, page_size,pid }) {
 
 module.exports = {
     searchGoods,
-    // pddAuthUid
 }
