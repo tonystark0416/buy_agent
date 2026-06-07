@@ -1,5 +1,8 @@
 # Ignore node_modules
 node_modules/
+config/
+logs/
+*.log
 # 环境变量
 .env
 .DS_Store

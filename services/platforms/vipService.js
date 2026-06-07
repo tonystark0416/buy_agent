@@ -241,7 +241,7 @@ async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityS
  * @returns 返回订单列表数组
  * 订单接口的调用频率限制：每个应用每分钟调用不超过10次，每次调用返回的数据量不超过100条。
  */
-async function orderList({ status, orderTimeStart, orderTimeEnd }) {
+async function orderList({ status, page,pageSize,orderTimeStart, orderTimeEnd }) {
     const service = 'com.vip.adp.api.open.service.UnionOrderV2Service';
     const method = 'orderList';
     const bisData = {
@@ -249,8 +249,8 @@ async function orderList({ status, orderTimeStart, orderTimeEnd }) {
             status: status,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
             orderTimeStart: Date.parse(new Date(orderTimeStart)),
             orderTimeEnd: Date.parse(new Date(orderTimeEnd)),
-            page: 1,
-            pageSize: 10,
+            page: page,
+            pageSize: pageSize,
             requestId: "mike" + Date.parse(new Date()),
         }
     }
@@ -262,13 +262,15 @@ async function orderList({ status, orderTimeStart, orderTimeEnd }) {
 module.exports = { getGoodsMarketPrice, searchGoods, genByGoodsId, createGiftCoupon, orderList }
 
 // 调试代码
-let obj = {
-    status: 1,
-    orderTimeStart: '2026-05-28 20:00:00',
-    orderTimeEnd: '2026-05-28 21:00:00'
-}
-orderList(obj).then(res => {
-    console.log(res);
-}).catch(err => {
-    console.error(err);
-})
+// let obj = {
+//     // status: 1,
+//     orderTimeStart: '2026-05-28 20:00:00',
+//     orderTimeEnd: '2026-05-28 21:00:00',
+//     page:1,
+//     pageSize:20
+// }
+// orderList(obj).then(res => {
+//     console.log(res);
+// }).catch(err => {
+//     console.error(err);
+// })

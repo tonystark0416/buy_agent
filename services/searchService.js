@@ -52,6 +52,7 @@ async function multipleSearchGoods({ activity_tags, keyword, page = 1, pageSize 
     // 这里可以根据需要调用不同平台的搜索接口，目前示例调用了 VIP 的搜索接口
     const promises = [];
     if (sources.includes('vip')) {
+        console.log({ keyword, page, pageSize, openid: uid, chanTag: pid })
         const vipResults = vipService.searchGoods({ keyword, page, pageSize, openid: uid, chanTag: pid });
         promises.push(vipResults);
     }

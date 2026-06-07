@@ -7,7 +7,7 @@
 
 // models/User.js
 
-const pool = require('../config/database.js');
+const pool = require('../utils/database.js');
 
 async function findByPhone(phone) {
     console.log(phone);
@@ -21,12 +21,9 @@ async function createUser(phone, password =null) {
     return { id: result.insertId, phone};
 }
 
-async function updatePassword(phone, password) {
-  await pool.execute('UPDATE adp_user SET password = ? WHERE phone = ?', [password, phone]);
-}
+
 
 module.exports = {
     findByPhone,
     createUser,
-    updatePassword
 };

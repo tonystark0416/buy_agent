@@ -23,4 +23,3 @@ CREATE TABLE `verification_codes` (
   KEY `idx_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
