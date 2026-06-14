@@ -1,15 +1,12 @@
 
-const {checkUser,getAuthUrl,unbindOpenId} = require('./services/platforms/vipService.js');
+const {orderList,checkUser,getGoodsMarketPrice,getAuthUrl,unbindOpenId,goodsListV2} = require('./services/platforms/vipService.js');
 
 // 调试代码
-// let obj = {
-//     goodsId: '6921500060852441693',
-//     openId: 'testOpenId123',
-//     chanTag: 'testChanTag456',
-//     statParam: 'testStat789',
-//     genAuthorityUrl: false,
-//     // giftCode: 'TESTGIFT202406'
-// }
+let obj = {
+    goodsId: '6921542524282429649',
+    content:'https://detail.vip.com/detail-1713405670-6921288524600447174.html'
+    // offset: 0,
+}
 // checkUser('mike002').then(res => {
 //     console.log(res);
 // }).catch(err => {
@@ -22,8 +19,8 @@ const {checkUser,getAuthUrl,unbindOpenId} = require('./services/platforms/vipSer
 //     console.error(err);
 // })
 
-unbindOpenId('mike002').then(res => {
-    console.log(res);
+orderList(obj).then(res => {
+    console.log(res.result);
 }).catch(err => {
     console.error(err);
 })

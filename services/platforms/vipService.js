@@ -172,28 +172,83 @@ async function searchGoods({ keyword, page, pageSize, openid, chanTag }) {
 
 }
 
+
 /**
- * vip cps商品营销信息接口，获取商品的市场价、佣金等信息
+ * 通过组货码批量拉取商品信息接口，支持批量拉取商品的市场价、商品详情、佣金等信息
+ * @param {string} jxCode , 唯品会联盟组货码，必传
+ * @param {number} offset 查询偏移(必传字段)，查询第一页传0，后续查询传上一页返回的nextPageOffset字段
+ * @param {number} pageSize 每页条数(必传字段)，每页条数建议20，最大支持100
+ * @param {string} openid 
+ * @param {string} chanTag 
+ * @return {object} 商品信息列表，lastPage会标识是否最后一页，nextPageOffset会提供下一页查询的offset值
+ */
+async function goodsListV2({ jxCode, offset, pageSize, openid, chanTag }) {
+    const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
+    const method = 'goodsListV2';
+    const bisData = {
+        request: {
+            jxCode: jxCode,
+            sourceType:1,
+            requestId: "mike" + Date.parse(new Date()),
+            chanTag: chanTag || 'defaultChanTag',
+            openId: openid || 'defaultOpenId',
+            realCall: true,
+            pageSize: pageSize || 20,
+            offset: 0,
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response;
+}
+
+
+
+/**
+ * vip cps商品营销信息接口，获取商品的市场价、商品详情、佣金等信息
  * @param {*} goodsId 
  * @param {*} openid 
  * @param {*} chanTag 
  * @returns  
  */
-async function getGoodsMarketPrice(goodsId, openid, chanTag) {
+async function getGoodsMarketPrice({goodsId, openid, chanTag}) {
     const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
     const method = 'getGoodsDetailMarketing';
     const bisData = {
         request: {
             goodsId: goodsId,
             requestId: "mike" + Date.parse(new Date()),
-            chanTag: chanTag,
-            openId: openid,
+            chanTag: chanTag ||'defaultChanTag',
+            openId: openid ||'defaultOpenId',
             realCall: true
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
     return response;
 }
+
+
+
+/**
+ * 唯品会CPS链接解析接口
+ * @param {*} content 检查的链接 支持输入多个链接 多个链接的情况下中间用空格隔开(长度不超过10000)
+ * @returns 
+ */
+async function vipLinkCheck(content) {
+    const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
+    const method = 'vipLinkCheck';
+    const bisData = {
+        vipLinkCheckReq: {
+            source: 'mike',
+            content: content,
+            requestId: "mike" + Date.parse(new Date()),
+        }
+    }
+    const response = await vipOpenApiRequest(service, method, bisData);
+    return response;
+}
+
+
+
 
 
 /**
@@ -301,11 +356,12 @@ async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityS
  * 订单接口的调用频率限制：每个应用每分钟调用不超过10次，每次调用返回的数据量不超过100条。
  */
 async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd }) {
+    // console.log('调用 VIP 订单接口，参数：', { status, page, pageSize, orderTimeStart, orderTimeEnd });
     const service = 'com.vip.adp.api.open.service.UnionOrderV2Service';
     const method = 'orderList';
     const bisData = {
         queryModel: {
-            status: status,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
+            status: status||null,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
             orderTimeStart: Date.parse(new Date(orderTimeStart)),
             orderTimeEnd: Date.parse(new Date(orderTimeEnd)),
             page: page,
@@ -314,18 +370,25 @@ async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd 
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
+    // console.log('订单接口响应：', response);
     return response?.result;
 }
+
+
+
 
 
 module.exports = {
     getGoodsMarketPrice,
     searchGoods,
+    goodsListV2,
+    genByVIPUrl,
     genByGoodsId,
     createGiftCoupon,
     orderList,
     checkUser,
     getAuthUrl,
-    unbindOpenId
+    unbindOpenId,
+    vipLinkCheck
 }
 
