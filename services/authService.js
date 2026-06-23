@@ -7,7 +7,7 @@
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/User.js'); 
+const UserModel = require('../models/adpUser.js'); 
 // const CodeModel = require('../models/VerificationCode');
 
 const JWT_SECRET = '19910416'; // 替换为你的 JWT 密钥
