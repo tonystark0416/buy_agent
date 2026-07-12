@@ -8,10 +8,10 @@
 
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController.js');
+const userController = require('../controllers/adpUserController.js');
 
-router.post('/login', authController.passwordLogin);
-router.post('/register', authController.register);
+router.post('/login', userController.passwordLogin);
+router.post('/register', userController.register);
 
 
 module.exports = router;

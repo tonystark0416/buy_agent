@@ -1,18 +1,17 @@
 // app.js
 const express = require('express');
-const userRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/adpUserRoutes.js');
 const aiRoutes = require('./routes/agnetRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const goodsDetailRoutes = require('./routes/goodsDetailRoutes');
 const giftCouponRoutes = require('./routes/giftCouponRoutes');
-const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
 app.use(express.json());  // 解析 JSON 请求体
 
 // 路由
-app.use('/api/auth', authRoutes);  // 用户相关路由
+app.use('/api/user', userRoutes);  // 用户相关路由
 app.use('/chat', aiRoutes);  // AI 聊天相关路由
 app.use('/api/search', searchRoutes);  // 搜索相关路由
 app.use('/api/goods', goodsDetailRoutes);  // 商品详情相关路由

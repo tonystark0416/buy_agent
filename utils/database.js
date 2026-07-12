@@ -5,6 +5,7 @@
 
 const mysql = require('mysql2/promise');
 const config = require('../config/config.js');
+// console.log('数据库配置:', config.db);
 
 const pool = mysql.createPool({
   host: config.db.host,
