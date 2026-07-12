@@ -43,3 +43,18 @@ exports.register = async (req, res, next) => {
     res.status(200).json({ code:201,error: err.message });
   }
 };
+
+
+//openid登录
+exports.loginByOpenid = async (req, res, next) => {
+  try {
+    const { openid } = req.body;
+    if (!openid) {
+      return res.status(400).json({ error: 'openid不能为空' });
+    }
+    const data = await userService.loginByOpenid(openid);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
