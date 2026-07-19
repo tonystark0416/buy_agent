@@ -5,6 +5,7 @@ const aiRoutes = require('./routes/agnetRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const goodsDetailRoutes = require('./routes/goodsDetailRoutes');
 const giftCouponRoutes = require('./routes/giftCouponRoutes');
+const weixinRoutes = require('./routes/weixinRoutes');
 
 const app = express();
 
@@ -16,8 +17,7 @@ app.use('/chat', aiRoutes);  // AI 聊天相关路由
 app.use('/api/search', searchRoutes);  // 搜索相关路由
 app.use('/api/goods', goodsDetailRoutes);  // 商品详情相关路由
 app.use('/api/giftCoupons', giftCouponRoutes);  // 礼品券相关路由
-
-
+app.use('/api/weixin', weixinRoutes);  // 微信相关路由
 
 app.get('/', (req, res) => {
     console.log('log here')

@@ -23,6 +23,8 @@ exports.passwordLogin = async (req, res, next) => {
   }
 };
 
+
+
 // 用户注册（手机号 + 密码）
 exports.register = async (req, res, next) => {
   try {
@@ -53,8 +55,9 @@ exports.loginByOpenid = async (req, res, next) => {
       return res.status(400).json({ error: 'openid不能为空' });
     }
     const data = await userService.loginByOpenid(openid);
-    res.json({ success: true, data });
+    res.json({ result: true, data });
   } catch (err) {
+    res.json({ result: false, error: err.message });
     next(err);
   }
 };
