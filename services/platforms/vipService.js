@@ -194,7 +194,7 @@ async function goodsListV2({ jxCode, offset, pageSize, openid, chanTag }) {
             openId: openid || 'defaultOpenId',
             realCall: true,
             pageSize: pageSize || 20,
-            offset: 0,
+            offset: offset,
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
