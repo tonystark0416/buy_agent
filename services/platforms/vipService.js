@@ -82,18 +82,18 @@ async function vipOpenApiRequest(service, method, bisData) {
  * @param {String} openId - 用户的唯一标识
  * @returns {number} 是否已授权唯品会，0-未授权，1-已授权
  */
-async function checkUser(openId) {
+async function checkUser({uid}) {
     const service = 'com.vip.adp.api.open.service.UnionUserV2Service';
     const method = 'checkUser';
     const bisData = {
         request: {
-            openId: openId,
+            openId: uid,
             requestId: "mike" + Date.parse(new Date()),
             scene: 2
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    return response?.result?.result
+    return response
 }
 
 
