@@ -123,7 +123,7 @@ async function unbindOpenId(openId) {
  * @param {String} openId - 用户的唯一标识
  * @returns {object} 授权链接URL,包含各种链接格式的url
  */
-async function getAuthUrl(openId) {
+async function getAuthUrl({uid}) {
     const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
     const method = 'getChannelUrlByType';
     const bisData = {
@@ -132,7 +132,7 @@ async function getAuthUrl(openId) {
             chanTag: "default_pid",
             requestId: "mike" + Date.parse(new Date()),
             compressShortUrl: true,
-            openId: openId,
+            openId: uid,
             realCall: true
         }
     }

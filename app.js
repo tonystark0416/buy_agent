@@ -1,6 +1,7 @@
 // app.js
 const express = require('express');
 const userRoutes = require('./routes/adpUserRoutes.js');
+const thirdAuthRoutes = require('./routes/adpThirdAuthRoutes.js');
 const aiRoutes = require('./routes/agnetRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const goodsDetailRoutes = require('./routes/goodsDetailRoutes');
@@ -14,6 +15,7 @@ app.use(express.json());  // 解析 JSON 请求体
 
 // 路由
 app.use('/api/user', userRoutes);  // 用户相关路由
+app.use('/api/thirdAuth', thirdAuthRoutes);  // 第三方授权相关路由
 app.use('/chat', aiRoutes);  // AI 聊天相关路由
 app.use('/api/search', searchRoutes);  // 搜索相关路由
 app.use('/api/goods', goodsDetailRoutes);  // 商品详情相关路由

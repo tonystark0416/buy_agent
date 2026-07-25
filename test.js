@@ -3,8 +3,8 @@ require('dotenv').config();
 
 const {orderList,checkUser,getGoodsMarketPrice,getAuthUrl,unbindOpenId,goodsListV2} = require('./services/platforms/vipService.js');
 
-const {loginByPassword,register,loginByOpenid} = require('./services/apdUserService.js');
 
+const {genAuthUrl,checkAuth} = require('./services/platforms/pddService.js');
 
 
 
@@ -13,9 +13,19 @@ const {loginByPassword,register,loginByOpenid} = require('./services/apdUserServ
 // }).catch(err => {
 //     console.error(err);
 // })
+let obj = {
+    uid: 6546546546,
+    pid: '43384525_309735569'
+}
 
-register('131435102634', null,'fdasfdsaf').then(res => {
+genAuthUrl(obj).then(res => {
     console.log(res);
 }).catch(err => {
     console.error(err);
 });
+
+// checkAuth(obj).then(res => {
+//     console.log(res);
+// }).catch(err => {
+//     console.error(err);
+// });

@@ -92,6 +92,7 @@ function generateToken(user) {
   });
 }
 
+
 function formatUser(user) {
   return {
     id: user.id,
@@ -100,6 +101,8 @@ function formatUser(user) {
     avatar: user.avatar,
   };
 }
+
+
 
 module.exports = {
   loginByPassword,

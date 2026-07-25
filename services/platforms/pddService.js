@@ -54,8 +54,8 @@ async function pddOpenApiRequest(type, bisData) {
     const sign = getSign(sysParam, bisData);
 
     //组装post请求体
-    const bizParams = {...bisData, ...sysParam, sign: sign }
-    
+    const bizParams = { ...bisData, ...sysParam, sign: sign }
+
     //第三步，发送请求
     try {
         const response = await axios.post('https://gw-api.pinduoduo.com/api/router', bizParams)
@@ -77,12 +77,12 @@ async function pddOpenApiRequest(type, bisData) {
  * @param {*} chanTag 
  * @returns 
  */
-async function searchGoods({activity_tags,keyword, page, page_size,pid }) {
+async function searchGoods({ activity_tags, keyword, page, page_size, pid }) {
     // console.log('调用拼多多搜索接口，参数：', {activity_tags,keyword, page, page_size,pid });
     const type = 'pdd.ddk.goods.search';
 
     const bizParams = {
-        block_cat_packages:'[1,2,3,4,5]', //屏蔽类目
+        block_cat_packages: '[1,2,3,4,5]', //屏蔽类目
         page: page,
         page_size: page_size,
         keyword: keyword,
@@ -100,32 +100,59 @@ async function searchGoods({activity_tags,keyword, page, page_size,pid }) {
     return response;
 }
 
+/**
+ * 拼多多生成授权链接接口
+ * @param {*} uid 用户id
+ * @param {*} pid 拼多多推广位id，pid
+ * @returns
+ */
+async function genAuthUrl({ uid, pid }) {
+    
+    if (!uid || !pid) {
+        throw new Error('uid和pid不能为空');
+    }
+
+    const type = 'pdd.ddk.rp.prom.url.generate';
+    const bizParams = {
+        channel_type: 10, //10-生成绑定备案链接
+        custom_parameters: `{"uid":"${uid}"}`,
+        generate_short_url: true,
+        generate_we_app: true,
+        p_id_list: `['${pid}']`,
+    }
+    // console.log(bizParams);
+    const response = await pddOpenApiRequest(type, bizParams);
+    // console.log('拼多多服务搜索接口响应：', response);
+    return response;
+}
 
 
 
-// let obj = {
-//     page: 1,
-//     page_size: 10,
-//     keyword: '坚果',
-//     pid:'44439853_316094909',
-//     activity_tags: '[4]'
-// }
-// searchGoods(obj).then(res => {
-//     const items = res?.goods_search_response?.goods_list || [];
-//     console.log(items);
-//     // for (const item of items) {
-//     //     console.log('商品名称：', item.goods_name);
-//     //     console.log('价格：', item.activity_tags);
-//     // }
-// }).catch(err => {
-//     console.error(err);
-// })
 
+/**
+ * 拼多多查询授权接口
+ * @param {*} uid 用户id
+ * @param {*} pid 拼多多推广位id，pid
+ * @returns bind:1-已绑定；0-未绑定
+ */
+async function checkAuth({ uid, pid }) {
 
+    const type = 'pdd.ddk.member.authority.query';
+    const bizParams = {
+        custom_parameters: `{"uid":"${uid}"}`,
+        pid: `${pid}`,
+    }
+    console.log(bizParams);
+    const response = await pddOpenApiRequest(type, bizParams);
+    // console.log('拼多多服务搜索接口响应：', response);
+    return response;
+}
 
 
 
 
 module.exports = {
     searchGoods,
+    genAuthUrl,
+    checkAuth
 }
