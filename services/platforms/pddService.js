@@ -148,11 +148,29 @@ async function checkAuth({ uid, pid }) {
     return response;
 }
 
+/**
+ * pdd.ddk.goods.zs.unit.url.gen ，本接口用于将其他推广者的单品推广链接直接转换为自己的，如果您的推广场景为采集群，可直接使用此接口
+ * @param {*} param
+ */
+async function urlGen({ uid, pid, source_url }) {
 
+    const type = 'pdd.ddk.goods.zs.unit.url.gen';
+    const bizParams = {
+        custom_parameters: `{"uid":"${uid}"}`,
+        pid: `${pid}`,
+        source_url:source_url,
+        generate_short_link: true,
+        generate_we_app_long_link: true
+    }
+    console.log(bizParams);
+    const response = await pddOpenApiRequest(type, bizParams);
+    return response;
+}
 
 
 module.exports = {
     searchGoods,
     genAuthUrl,
-    checkAuth
+    checkAuth,
+    urlGen
 }

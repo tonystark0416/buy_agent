@@ -1,6 +1,6 @@
 
 
-const thirdAuthService = require('../services/adpThirdAuth.js');
+const thirdAuthService = require('../services/adpThirdAuthService.js');
 
 /**
  * 生成第三方平台授权链接
