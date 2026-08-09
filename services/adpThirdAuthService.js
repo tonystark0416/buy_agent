@@ -25,7 +25,6 @@ async function genAuthUrl({ uid, pid, platform }) {
     deeplink_url: ''
   }
 
-
   //拼多多
   if (platform === 'pdd') {
     const result = await pdd.genAuthUrl({ uid: uid, pid: pid });

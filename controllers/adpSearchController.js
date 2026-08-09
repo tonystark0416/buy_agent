@@ -4,7 +4,7 @@
  * @author liuweizhao
  * @date 2024-06-01 
  */
-const multipleSearchGoods = require('../services/searchService').multipleSearchGoods;
+const multipleSearchGoods = require('../services/adpSearchService').multipleSearchGoods;
 
 exports.search = async (req, res, next) => {
   try {

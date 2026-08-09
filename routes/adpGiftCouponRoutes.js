@@ -6,7 +6,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const gift = require('../controllers/giftCouponController');
+const gift = require('../controllers/adpGiftCouponController');
 
 router.get('/', gift.giftCoupon);
 

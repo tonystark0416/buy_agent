@@ -4,8 +4,8 @@
  * @date 2024-06-01 
  */
 
-const vipService = require('../services/platforms/vipService');
-const pddService = require('../services/platforms/pddService');
+const vipService = require('./platforms/vipService');
+const pddService = require('./platforms/pddService');
 
 
 /**

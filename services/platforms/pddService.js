@@ -1,6 +1,5 @@
 /* 
-请求 多多联盟 接口获取数据
-包括商品、订单、获取链接等接口
+*  请求 多多联盟 接口获取数据，包括商品、订单、获取链接等接口
 */
 
 const crypto = require('crypto');
@@ -8,7 +7,7 @@ const axios = require('axios');
 const config = require('../../config/config.js');
 
 /**
- * 签名函数
+ * 签名函数  https://open.pinduoduo.com/application/document/browse?idStr=8EC06C399636041E
  * @param {*} sysParam 
  * @param {*} bisParam 
  * @returns 
@@ -25,11 +24,8 @@ function getSign(sysParam, bisParam) {
         result += key + value;
     }
     result = config.pdd_cps_key.appSecret + result + config.pdd_cps_key.appSecret;
-    // console.log(result);
     const md5 = crypto.createHash('md5').update(result).digest('hex');
-    // console.log(md5.toUpperCase());
     return md5.toUpperCase();
-
 }
 
 
@@ -66,6 +62,9 @@ async function pddOpenApiRequest(type, bisData) {
     }
 }
 
+// ================= 各种API的实现对接=================
+
+
 
 
 /**
@@ -96,22 +95,17 @@ async function searchGoods({ activity_tags, keyword, page, page_size, pid }) {
     }
 
     const response = await pddOpenApiRequest(type, bizParams);
-    // console.log('拼多多服务搜索接口响应：', response);
     return response;
 }
 
 /**
- * 拼多多生成授权链接接口
+ * 拼多多生成授权链接接口，授权备案流程 https://jinbao.pinduoduo.com/qa-system?questionId=204
  * @param {*} uid 用户id
  * @param {*} pid 拼多多推广位id，pid
  * @returns
  */
 async function genAuthUrl({ uid, pid }) {
-    
-    if (!uid || !pid) {
-        throw new Error('uid和pid不能为空');
-    }
-
+    if (!uid || !pid) { throw new Error('uid和pid不能为空');}
     const type = 'pdd.ddk.rp.prom.url.generate';
     const bizParams = {
         channel_type: 10, //10-生成绑定备案链接
@@ -120,9 +114,7 @@ async function genAuthUrl({ uid, pid }) {
         generate_we_app: true,
         p_id_list: `['${pid}']`,
     }
-    // console.log(bizParams);
     const response = await pddOpenApiRequest(type, bizParams);
-    // console.log('拼多多服务搜索接口响应：', response);
     return response;
 }
 
@@ -136,21 +128,22 @@ async function genAuthUrl({ uid, pid }) {
  * @returns bind:1-已绑定；0-未绑定
  */
 async function checkAuth({ uid, pid }) {
-
     const type = 'pdd.ddk.member.authority.query';
     const bizParams = {
         custom_parameters: `{"uid":"${uid}"}`,
         pid: `${pid}`,
     }
-    console.log(bizParams);
     const response = await pddOpenApiRequest(type, bizParams);
-    // console.log('拼多多服务搜索接口响应：', response);
     return response;
 }
 
+
 /**
- * pdd.ddk.goods.zs.unit.url.gen ，本接口用于将其他推广者的单品推广链接直接转换为自己的，如果您的推广场景为采集群，可直接使用此接口
- * @param {*} param
+ * 拼多多转链接接口 pdd.ddk.goods.zs.unit.url.gen ，本接口用于将其他推广者的单品推广链接直接转换为自己的，如果您的推广场景为采集群，可直接使用此接口
+ * @parm {String} uid 用户id
+ * @parm {String} pid 拼多多推广位id，pid
+ * @parm {String} source_url 原始链接
+ * @returns
  */
 async function urlGen({ uid, pid, source_url }) {
 
