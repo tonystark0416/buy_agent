@@ -306,7 +306,7 @@ async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUr
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    return response?.result?.urlInfoList;
+    return response
 }
 
 

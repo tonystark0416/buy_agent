@@ -162,7 +162,6 @@ async function urlGen({ uid, pid, source_url }) {
         generate_short_link: true,
         generate_we_app_long_link: true
     }
-    console.log(bizParams);
     const response = await pddOpenApiRequest(type, bizParams);
     return response;
 }

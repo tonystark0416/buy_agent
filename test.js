@@ -1,10 +1,7 @@
 
 require('dotenv').config();
 
-const {orderList,checkUser,getGoodsMarketPrice,getAuthUrl,unbindOpenId,goodsListV2} = require('./services/platforms/vipService.js');
-const {urlGen} = require('./services/platforms/pddService.js');
-
-const {genAuthUrl,checkAuth} = require('./services/platforms/pddService.js');
+const {tranUrl} = require('./services/adpTranUrlService.js');
 
 
 
@@ -16,17 +13,12 @@ const {genAuthUrl,checkAuth} = require('./services/platforms/pddService.js');
 let obj = {
     uid: 175,
     pid: '43384525_317172887',
-    source_url: 'https://p.pinduoduo.com/Oo6qC5VF?sc=EFAC'
+    source_url: 'https://t.vip.com12321/g5qrsq'
 }
 
-urlGen(obj).then(res => {
+tranUrl(obj).then(res => {
     console.log(res);
 }).catch(err => {
     console.error(err);
 });
 
-// checkAuth(obj).then(res => {
-//     console.log(res);
-// }).catch(err => {
-//     console.error(err);
-// });
