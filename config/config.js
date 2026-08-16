@@ -18,6 +18,10 @@ const config = {
     wechat: {
         appId: process.env.WECHAT_APPID,
         appSecret: process.env.WECHAT_APPSECRET
+    },
+    meituan_cps_key: {
+        appKey: process.env.MT_CPS_APPKEY,
+        appSecret: process.env.MT_CPS_APPSECRET,
     }
 }
 

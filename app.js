@@ -9,12 +9,14 @@ const giftCouponRoutes = require('./routes/adpGiftCouponRoutes.js');
 const weixinRoutes = require('./routes/weixinRoutes');
 const vipGoodsListRoutes = require('./routes/adpVipGoodsListRoutes.js');
 const adpTranUrlRoutes = require('./routes/adpTranUrlRoutes.js');
+const meituanRoutes = require('./routes/life/adpMeituanRoutes.js');
 
 const app = express();
 
 app.use(express.json());  // 解析 JSON 请求体
 
 // 路由
+app.use('/api/meituan', meituanRoutes);  // 美团相关路由
 app.use('/api/user', userRoutes);  // 用户相关路由
 app.use('/api/thirdAuth', thirdAuthRoutes);  // 第三方授权相关路由
 app.use('/chat', aiRoutes);  // AI 聊天相关路由
