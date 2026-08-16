@@ -25,3 +25,13 @@ exports.getReferralLink = async (req, res, next) => {
         next(error);
     }
 }
+
+exports.getOrderInfo = async (req, res, next) => {
+    // const  {actId} = req.query;
+    try {
+        const result = await meituanService.getOrderInfo();
+        res.json({ success: true, data: result }); //返回数据给前端
+    } catch (error) {
+        next(error);
+    }
+}

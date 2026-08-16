@@ -94,7 +94,6 @@ async function getGoodsInfo(searchText) {
 
 //生成推广链接
 async function getReferralLink(actId) {
-    console.log('actId:', actId);
     // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/get_referral_link';
 
@@ -106,10 +105,23 @@ async function getReferralLink(actId) {
     return res;
 }
 
+//获取订单信息，支持单个订单，支持批量获取
+async function getOrderInfo() {
+    // 获取推广链接接口地址
+    const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_order';
 
+    const requestData = {
+        queryTimeType:1,
+        startTime: 1786879206,
+        endTime:1786969206,
+    };
+    const res = await requestMeituan(API_URL, requestData);
+    return res;
+}
 
 
 module.exports = {
     getGoodsInfo,
-    getReferralLink
+    getReferralLink,
+    getOrderInfo
 };

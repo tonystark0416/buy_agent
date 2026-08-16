@@ -44,7 +44,7 @@ const SignUtil = {
             `${SignUtil.httpMethod(config)}\n` +
             `${SignUtil.contentMD5(config)}\n` +
             `${SignUtil.headers(signHeaders)}${SignUtil.url(config)}`;
-        console.log('待签名字符串:', JSON.stringify(strSign));
+        // console.log('待签名字符串:', JSON.stringify(strSign));
 
         const key = Buffer.from(SignUtil.APP_SECRET, 'utf8');
         const message = Buffer.from(strSign, 'utf8');

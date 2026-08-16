@@ -10,5 +10,6 @@ const meituanController = require('../../controllers/life/adpMeituanController')
 
 router.get('/', meituanController.getWaimaiGoods);
 router.get('/referral-link', meituanController.getReferralLink);
+router.get('/order-info', meituanController.getOrderInfo);
 
 module.exports = router;
