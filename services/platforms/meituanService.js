@@ -92,13 +92,29 @@ async function getGoodsInfo(searchText) {
 }
 
 
-//生成推广链接
-async function getReferralLink(actId) {
+/**
+ * 生成推广链接，https://media.meituan.com/pc/index.html#/materials/api-detail/get_referral_link
+ * @param {*} platform 
+ * @param {*} actId  活动id
+ * @param {*} bizLine 
+ * @param {*} skuViewId
+ * @param {*} productViewSign 商品id
+ * @param {*} sid
+ * @param {*} linkTypeList 链接类型
+ * @param {*} textList
+ * @returns 
+ */
+async function getReferralLink(params) {
+
+    const {platform, bizLine,skuViewId,actId,productViewSign,sid,linkTypeList,textList} = params;
+    
     // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/get_referral_link';
 
     const requestData = {
+        skuViewId: skuViewId,
         actId: actId,
+        productViewSign: productViewSign,
         linkTypeList:[1,2,3,4,5,6],
     };
     const res = await requestMeituan(API_URL, requestData);

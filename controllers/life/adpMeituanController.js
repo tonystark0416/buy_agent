@@ -16,10 +16,23 @@ exports.getWaimaiGoods = async (req, res, next) => {
     }
 }
 
-exports.getReferralLink = async (req, res, next) => {
+//通过商品id获取链接接口
+exports.getReferralLinkByGoodsId = async (req, res, next) => {
+    const  {productViewSign} = req.query;
+    console.log( {productViewSign});
+    try {
+        const result = await meituanService.getReferralLink({productViewSign});
+        res.json({ success: true, data: result }); //返回数据给前端
+    } catch (error) {
+        next(error);
+    }
+}
+
+//通过活动id获取链接接口
+exports.getReferralLinkByActId = async (req, res, next) => {
     const  {actId} = req.query;
     try {
-        const result = await meituanService.getReferralLink(actId);
+        const result = await meituanService.getReferralLink({actId});
         res.json({ success: true, data: result }); //返回数据给前端
     } catch (error) {
         next(error);

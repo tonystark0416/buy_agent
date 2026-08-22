@@ -10,6 +10,7 @@ const weixinRoutes = require('./routes/weixinRoutes');
 const vipGoodsListRoutes = require('./routes/adpVipGoodsListRoutes.js');
 const adpTranUrlRoutes = require('./routes/adpTranUrlRoutes.js');
 const meituanRoutes = require('./routes/life/adpMeituanRoutes.js');
+const adpBannerRoutes = require('./routes/adpBannerRoutes.js');
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/giftCoupons', giftCouponRoutes);  // 礼品券相关路由
 app.use('/api/weixin', weixinRoutes);  // 微信相关路由
 app.use('/api/vip', vipGoodsListRoutes);  // VIP商品列表相关路由
 app.use('/api/tranUrl', adpTranUrlRoutes);  // 第三方平台链接转换相关路由
+app.use('/api/banner', adpBannerRoutes);  // banner相关路由
 
 app.get('/', (req, res) => {
     console.log('log here')
