@@ -8,7 +8,6 @@ const axios = require('axios');
 const config = require('../../config/config.js');
 
 
-
 /**
  * 签名工具（HMAC-MD5，符合 VOP 官方规范）
  * @param {Object} systemParams - 系统级参数（除 sign 外）

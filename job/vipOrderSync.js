@@ -2,16 +2,17 @@
  * 定时任务：每小时整点拉取唯品会订单
  */
 
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const cron = require('node-cron');
-
-const { orderList } = require('../platforms/vipService');
-const { createAdpOrder, findOrder, updateOrder } = require('../../models/adpOrder');
-const { formatBeijing } = require('../../utils/timeUtils');
+const { orderList } = require('../services/platforms/vipService');
+const { createAdpOrder, findOrder, updateOrder } = require('../models/adpOrder');
+const { formatBeijing } = require('../utils/timeUtils');
 
 
 
 /**
- * 拉取指定时间范围内的订单（自动处理分页）
+ * 拉取指定时间范围内的订单（自动处理分页） 最大查询时间区间默认不超过1小时
  * @param {number} startTimestamp - 开始时间戳（毫秒）
  * @param {number} endTimestamp   - 结束时间戳（毫秒）
  * @param {number} status         - 订单状态（可选，0-不合格，1-待定，2-已完结）
@@ -32,7 +33,7 @@ async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
             page,
             pageSize
         };
-        console.log(`[正在请求] 第 ${page} 页，时间区间 ${startTimestamp} ~ ${endTimestamp}`);
+        console.log(`[正在请求] 第 ${page} 页`);
 
         const response = await orderList(requestParams);
         const orders = response?.orderInfoList || [];
@@ -50,8 +51,6 @@ async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
     console.log(`[完成] 共拉取 ${allOrders.length} 笔订单`);
     return allOrders;
 }
-
-
 
 
 /**
@@ -94,12 +93,20 @@ async function saveOrdersToDatabase(orders) {
 }
 
 /**
- * 每小时整点执行的任务
- * 拉取上一个整点到当前整点之间的订单
+ * 执行任务，先拉订单，然后入库
+ * 永远拉取当前整点到下一个整点之间的订单，比如当前是2026-08-23 20:00:41，则拉取2026-08-23 20:00:00 ~ 2026-08-23 21:00:00之间的订单
  */
-async function minutelyPullTask(startTs, endTs) {
+async function pullTask(currentTs) {
 
     try {
+        const currentTime = new Date(currentTs);
+        currentTime.setMinutes(0, 0, 0);
+        const startTs = currentTime.getTime();
+        // console.log(startTs)
+        const endTs = startTs + 60 * 60 * 1000;
+        // console.log(endTs)
+        console.log(`[定时任务] 开始拉取订单，时间区间：${formatBeijing(new Date(startTs))} ~ ${formatBeijing(new Date(endTs))}`);
+
         const orders = await fetchOrdersByTimeRange(startTs, endTs);
 
         if (orders.length === 0) {
@@ -124,34 +131,13 @@ async function minutelyPullTask(startTs, endTs) {
 
 // ================= 启动定时任务 =================
 // cron 表达式: 秒 分 时 日 月 星期
-// 每小时整点（例如 10:00:00）执行一次
-cron.schedule('0 * * * * *', () => {
-    const now = new Date();
-    // 当前分钟的起始（毫秒，精确到秒的0秒）
-    const currentMinuteStart = new Date(now);
-    currentMinuteStart.setSeconds(0, 0);
-    // 上一分钟的起始
-    const lastMinuteStart = new Date(currentMinuteStart.getTime() - 60 * 1000);
-
-    const startTs = lastMinuteStart.getTime();
-    const endTs = currentMinuteStart.getTime();
-    // const startTs = 1781441439000
-    // const endTs = 1781442439000
-    console.log(`[定时任务] 开始拉取订单，时间区间：${formatBeijing(lastMinuteStart)} ~ ${formatBeijing(currentMinuteStart)}`);
-
-    minutelyPullTask(startTs, endTs); //执行任务
+// 每10秒时整点执行一次
+cron.schedule('*/10 * * * * *', () => {
+    // pullTask(Date.now()); //执行任务
+    pullTask(1787489741000); //执行任务
 
 }, {
     timezone: "Asia/Shanghai"   // 确保使用北京时间
 });
 
 console.log('定时任务已启动，每小时整点拉取唯品会订单...');
-
-
-// fetchOrdersByTimeRange(1780851600000, 1780855200000).then(orders => {
-//     console.log(orders);
-// }).catch(err => {
-//     console.error(err);
-// });
-
-// minutelyPullTask(); // 立即执行一次（测试用）
