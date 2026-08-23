@@ -6,10 +6,11 @@
 
 const meituanService = require('../../services/platforms/meituanService');
 
+//获取美团外卖商品信息接口
 exports.getWaimaiGoods = async (req, res, next) => {
-    const  {text} = req.query;
+    const  {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField} = req.query;
     try {
-        const result = await meituanService.getGoodsInfo(text);
+        const result = await meituanService.getGoodsInfo({searchText, longitude,latitude,pageSize,pageNo,searchId,sortField});
         res.json({ success: true, data: result }); //返回数据给前端
     } catch (error) {
         next(error);

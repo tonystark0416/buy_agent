@@ -58,7 +58,7 @@ async function requestMeituan(url, postData) {
         validateStatus: () => true,
     });
 
-    console.log('\nHTTP 状态码:', res.status);
+    // console.log('\nHTTP 状态码:', res.status);
 
     // 3. 解析响应
     let result;
@@ -70,23 +70,37 @@ async function requestMeituan(url, postData) {
     } catch (e) {
         result = res.data;
     }
-    console.log('响应内容:', JSON.stringify(result, null, 2));
+    // console.log('响应内容:', JSON.stringify(result, null, 2));
 
     return result;
 }
 
-//获取商品信息
-async function getGoodsInfo(searchText) {
+
+/**
+ * 搜索美团商品信息 https://media.meituan.com/pc/index.html#/materials/api-detail/query_coupon
+ * sortField通过搜索searchText召回时：支持1综合排序、2价格升序、6离我最近，不填默认为1
+ * @param {*} params
+ *
+ * @returns
+ */
+async function getGoodsInfo(params) {
+    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField} = params;
     // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_coupon';
 
     const requestData = {
         searchText: searchText,
-        longitude:113.227669*1000000,
-        latitude:23.093816*1000000,
-        platform:2,
-        listTopiId:2
+        longitude:longitude*1000000,
+        latitude:latitude*1000000,
+        pageSize: pageSize,
+        pageNo: pageNo,
+        searchId: searchId,
+        sortField: sortField
+        // platform:2,
+        // listTopiId:2
     };
+    console.log(requestData)
+
     const res = await requestMeituan(API_URL, requestData);
     return res;
 }
