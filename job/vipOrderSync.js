@@ -133,8 +133,8 @@ async function pullTask(currentTs) {
 // cron 表达式: 秒 分 时 日 月 星期
 // 每10秒时整点执行一次
 cron.schedule('*/10 * * * * *', () => {
-    // pullTask(Date.now()); //执行任务
-    pullTask(1787489741000); //执行任务
+    pullTask(Date.now()); //执行任务
+    // pullTask(1787489741000); //执行任务
 
 }, {
     timezone: "Asia/Shanghai"   // 确保使用北京时间
