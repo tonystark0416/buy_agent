@@ -6,7 +6,7 @@
  */
 const express = require('express');
 const router = express.Router();
-const goods = require('../controllers/goodsDetailController');
+const goods = require('../controllers/adpGoodsDetailController');
 
 router.get('/', goods.getGoodsMarketPrice);
 
