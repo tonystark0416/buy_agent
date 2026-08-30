@@ -31,9 +31,10 @@ exports.getReferralLinkByGoodsId = async (req, res, next) => {
 
 //通过活动id获取链接接口
 exports.getReferralLinkByActId = async (req, res, next) => {
-    const  {actId} = req.query;
+    const  {actId,uid} = req.query;
+    const sid = uid;
     try {
-        const result = await meituanService.getReferralLink({actId});
+        const result = await meituanService.getReferralLink({actId,sid});
         res.json({ success: true, data: result }); //返回数据给前端
     } catch (error) {
         next(error);

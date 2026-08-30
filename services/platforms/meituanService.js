@@ -128,6 +128,7 @@ async function getReferralLink(params) {
     const requestData = {
         skuViewId: skuViewId,
         actId: actId,
+        sid:sid,
         productViewSign: productViewSign,
         linkTypeList:[1,2,3,4,5,6],
     };
