@@ -11,6 +11,10 @@ const config = {
         appKey: process.env.VIP_CPS_APPKEY,
         appSecret: process.env.VIP_CPS_APPSECRET,
     },
+    jd_cps_key: {
+        appKey: process.env.JD_CPS_APPKEY,
+        appSecret: process.env.JD_CPS_APPSECRET,
+    },
     pdd_cps_key: {
         client_id: process.env.PDD_CPS_CLIENT_ID,
         appSecret: process.env.PDD_CPS_APPSECRET,

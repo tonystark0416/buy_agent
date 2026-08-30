@@ -1,7 +1,7 @@
 
 require('dotenv').config();
 
-const {tranUrl} = require('./services/adpTranUrlService.js');
+const {genUrl} = require('./services/platforms/jdService.js');
 
 
 
@@ -11,13 +11,11 @@ const {tranUrl} = require('./services/adpTranUrlService.js');
 //     console.error(err);
 // })
 let obj = {
-    uid: 175,
-    pid: '43384525_317172887',
-    source_url: 'https://t.vip.com12321/g5qrsq'
+   materialId:'https://u.jd.com/kg4YTz2'
 }
 
-tranUrl(obj).then(res => {
-    console.log(res);
+genUrl(obj).then(res => {
+    console.log(res.jd_union_open_promotion_bysubunionid_get_responce.getResult);
 }).catch(err => {
     console.error(err);
 });

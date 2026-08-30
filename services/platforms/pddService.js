@@ -160,11 +160,26 @@ async function urlGen({ uid, pid, source_url }) {
 }
 
 
+/**
+ * 获取拼多多商品详情 https://jinbao.pinduoduo.com/third-party/api-detail?apiName=pdd.ddk.goods.detail
+ * @param {} params 
+ */
+async function getGoodsDetail({goods_sign,uid,pid}) {
+    const type = 'pdd.ddk.goods.detail';
+    const bizParams = {
+        goods_sign: goods_sign, //商品id
+        custom_parameters: `{"uid":"${uid}"}`,
+        pid: `${pid}`
+    }
+    const response = await pddOpenApiRequest(type, bizParams);
+    return response;
+}
 
 
 module.exports = {
     searchGoods,
     genAuthUrl,
     checkAuth,
-    urlGen
+    urlGen,
+    getGoodsDetail
 }
