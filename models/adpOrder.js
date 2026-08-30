@@ -6,7 +6,6 @@
  */
 
 // models/adpOrder.js
-
 const pool = require('../utils/database.js');
 
 /**
@@ -26,10 +25,10 @@ async function findOrder(order_sn) {
  * @returns   
  */
 async function createAdpOrder(orderData) {
-    const { order_sn, status, platform, order_amount, commission, create_time } = orderData
-    console.log(order_sn, status, platform, order_amount, commission, create_time);
+    const { order_sn, uid, goods_id, goods_name,goods_img_url,status, platform, order_amount, commission, create_time, update_time } = orderData
+    console.log(orderData);
 
-    const [result] = await pool.execute('INSERT INTO adp_order (order_sn, status,platform,order_amount,commission,create_time) VALUES (?,?,?,?,?,?)', [order_sn, status, platform, order_amount, commission, create_time]);
+    const [result] = await pool.execute('INSERT INTO adp_order (order_sn, uid,goods_id,goods_name,goods_img_url,status,platform,order_amount,commission,create_time,update_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [order_sn, uid, goods_id,goods_name,goods_img_url, status, platform, order_amount, commission, create_time, update_time]);
 
     return { id: result.insertId, order_sn };
 }
@@ -40,14 +39,44 @@ async function createAdpOrder(orderData) {
  * @returns 
  */
 async function updateOrder(orderData) {
-    const { order_sn, status, platform, order_amount, commission, create_time } = orderData
-    const [result] = await pool.execute('UPDATE adp_order SET status = ? WHERE order_sn = ?', [status, order_sn]);
+    const { order_sn, status, uid, goods_id, goods_name,goods_img_url,platform, order_amount, commission, create_time, update_time } = orderData
+    const [result] = await pool.execute('UPDATE adp_order SET status = ? ,uid=?,goods_id=? ,goods_name=?,goods_img_url=?,update_time=? WHERE order_sn = ?', [status, uid, goods_id, goods_name,goods_img_url,update_time, order_sn]);
     // console.log(result);
     return result.affectedRows > 0 || false;
+}
+
+/**
+ * 根据用户信息获取订单列表
+ * 
+ */
+async function getOrderListByUid(params) {
+    const { uid, page } = params
+    const sqlCount = 'SELECT count(*) as total FROM adp_order where uid =? '
+    const sqlList = 'SELECT * FROM adp_order where uid =? ORDER BY create_time limit ?,? '
+    const pageSize = 10
+    const pageNo = (page - 1) * pageSize;
+    
+
+    const [countRows] = await pool.execute(sqlCount, [uid]); //统计总数
+    console.log(countRows)
+    const [rows] = await pool.execute(sqlList, [uid, pageNo, pageSize]); //分页查询
+
+    const total = countRows[0]?.total || 0
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+        list: rows,
+        page,
+        pageSize,
+        total,
+        totalPages
+    };
 }
 
 
 
 
-module.exports = { createAdpOrder, findOrder, updateOrder };
+
+
+module.exports = { createAdpOrder, findOrder, updateOrder, getOrderListByUid };
 

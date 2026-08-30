@@ -10,6 +10,49 @@ const { createAdpOrder, findOrder, updateOrder } = require('../models/adpOrder')
 const { formatBeijing } = require('../utils/timeUtils');
 
 
+/**
+ * 按日期范围按小时循环拉取订单
+ * 例如：2026-08-20 ~ 2026-08-25，会自动拆成每小时一个区间
+ * @param {string} startDate - 开始日期，格式：YYYY-MM-DD
+ * @param {string} endDate   - 结束日期，格式：YYYY-MM-DD
+ * @returns {Promise<Array>}
+ */
+async function fetchOrdersByDateRange(startDate, endDate) {
+    const start = new Date(`${startDate} 00:00:00`);
+    const end = new Date(`${endDate} 23:59:59.999`);
+
+    const allOrders = [];
+    let cursor = new Date(start);
+
+    while (cursor <= end) {
+        const startTs = cursor.getTime();
+        const endTs = Math.min(startTs + 60 * 60 * 1000, end.getTime());
+
+        console.log(`[按日期范围] 拉取 ${new Date(startTs).toLocaleString()} ~ ${new Date(endTs).toLocaleString()}`);
+
+        const orders = await fetchOrdersByTimeRange(startTs, endTs);
+        allOrders.push(...orders);
+
+        cursor = new Date(startTs + 60 * 60 * 1000);
+    }
+
+    // 去重：防止订单在边界时间重复
+    const uniqueMap = new Map();
+    for (const order of allOrders) {
+        const key = order.orderSn || order.orderId || order.id;
+        if (key && !uniqueMap.has(key)) {
+            uniqueMap.set(key, order);
+        }
+    }
+
+    return [...uniqueMap.values()];
+}
+
+
+
+
+
+
 
 /**
  * 拉取指定时间范围内的订单（自动处理分页） 最大查询时间区间默认不超过1小时
@@ -65,14 +108,23 @@ async function saveOrdersToDatabase(orders) {
     for (const order of orders) {
         const orderSn = order.orderSn;          
         const newStatus = order.status;
+        const goods_id = order.detailList[0].goodsId
+        const goods_name = order.detailList[0].goodsName
+        const goods_img_url = order.detailList[0].goodsThumb
 
+        //重新根据数据映射订单数据库字段
         const orderData = {
             order_sn: orderSn,
             status: newStatus,                      // 新状态
             platform: 'vip',                     // 平台固定
             order_amount: order.totalCost,
             commission: order.commission,
-            create_time: order.orderTime
+            create_time: order.orderTime,
+            uid: order.openId,
+            goods_id :goods_id,
+            goods_name,
+            goods_img_url,
+            update_time:order.lastUpdateTime
         };
 
         try {
@@ -113,7 +165,7 @@ async function pullTask(currentTs) {
             console.log('[定时任务] 该时间段无订单');
             return;
         }
-        console.log(orders);
+        console.log(JSON.stringify(orders));
 
         // ========= 这里添加你的后续处理逻辑 =========
         // 例如：存入数据库、更新缓存、发送通知等
@@ -129,15 +181,47 @@ async function pullTask(currentTs) {
 
 
 
+/**
+ * 按日期范围拉取订单，并写入数据库
+ * @param {string} startDate
+ * @param {string} endDate
+ */
+async function pullOrdersByDateRange(startDate, endDate) {
+    try {
+        const orders = await fetchOrdersByDateRange(startDate, endDate);
+
+        if (!orders.length) {
+            console.log(`[日期范围] ${startDate} ~ ${endDate} 没有订单`);
+            return [];
+        }
+
+        const stats = await saveOrdersToDatabase(orders);
+        console.log('[日期范围] 入库统计:', stats);
+
+        return orders;
+    } catch (error) {
+        console.error('[日期范围] 拉取失败:', error);
+        throw error;
+    }
+}
+
+
+
 // ================= 启动定时任务 =================
 // cron 表达式: 秒 分 时 日 月 星期
 // 每10秒时整点执行一次
-cron.schedule('*/10 * * * * *', () => {
-    pullTask(Date.now()); //执行任务
-    // pullTask(1787489741000); //执行任务
+// cron.schedule('*/10 * * * * *', () => {
+//     // pullTask(Date.now()); //执行任务
+//     pullTask(1787489741000); //执行任务
 
-}, {
-    timezone: "Asia/Shanghai"   // 确保使用北京时间
-});
+// }, {
+//     timezone: "Asia/Shanghai"   // 确保使用北京时间
+// });
 
-console.log('定时任务已启动，每小时整点拉取唯品会订单...');
+// console.log('定时任务已启动，每小时整点拉取唯品会订单...');
+
+
+(async () => {
+    const orders = await pullOrdersByDateRange('2026-08-23', '2026-08-24');
+    console.log('总订单数:', orders.length);
+})();
