@@ -1,7 +1,7 @@
 
 require('dotenv').config();
 
-const {genUrl} = require('./services/platforms/jdService.js');
+const {getOrderInfo,getGoodsInfo} = require('./services/platforms/meituanService.js');
 
 
 
@@ -11,11 +11,12 @@ const {genUrl} = require('./services/platforms/jdService.js');
 //     console.error(err);
 // })
 let obj = {
-   materialId:'https://u.jd.com/kg4YTz2'
+    searchText:'鸡翅',
+   productViewSignList:"DALMNW42ECGBNCIJATIMBTW3XI"
 }
 
-genUrl(obj).then(res => {
-    console.log(res.jd_union_open_promotion_bysubunionid_get_responce.getResult);
+getGoodsInfo(obj).then(res => {
+    console.log(res.data);
 }).catch(err => {
     console.error(err);
 });

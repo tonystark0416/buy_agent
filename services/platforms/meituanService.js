@@ -84,22 +84,23 @@ async function requestMeituan(url, postData) {
  * @returns
  */
 async function getGoodsInfo(params) {
-    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField} = params;
+    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList} = params;
     // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_coupon';
 
     const requestData = {
-        searchText: searchText,
+        searchText: searchText||'',
         longitude:longitude*1000000,
         latitude:latitude*1000000,
         pageSize: pageSize,
         pageNo: pageNo,
         searchId: searchId,
-        sortField: sortField
+        sortField: sortField,
+        productViewSignList:[productViewSignList],
         // platform:2,
         // listTopiId:2
     };
-    console.log(requestData)
+    console.log(JSON.stringify(requestData));
 
     const res = await requestMeituan(API_URL, requestData);
     return res;
@@ -137,16 +138,19 @@ async function getReferralLink(params) {
 }
 
 //获取订单信息，支持单个订单，支持批量获取
-async function getOrderInfo() {
+async function getOrderInfo({queryTimeType, startTime, endTime, page, platform}) {
     // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_order';
 
     const requestData = {
-        queryTimeType:1,
-        startTime: 1786879206,
-        endTime:1786969206,
+        queryTimeType:queryTimeType,
+        startTime: startTime,
+        endTime: endTime,
+        page:page,
+        platform:platform
     };
     const res = await requestMeituan(API_URL, requestData);
+    // console.log(res);
     return res;
 }
 
