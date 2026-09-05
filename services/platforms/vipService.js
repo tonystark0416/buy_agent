@@ -81,7 +81,7 @@ async function vipOpenApiRequest(service, method, bisData) {
  * @param {String} openId - 用户的唯一标识
  * @returns {number} 是否已授权唯品会，0-未授权，1-已授权
  */
-async function checkUser({uid}) {
+async function checkUser({ uid }) {
     const service = 'com.vip.adp.api.open.service.UnionUserV2Service';
     const method = 'checkUser';
     const bisData = {
@@ -122,7 +122,7 @@ async function unbindOpenId(openId) {
  * @param {String} openId - 用户的唯一标识
  * @returns {object} 授权链接URL,包含各种链接格式的url
  */
-async function getAuthUrl({uid}) {
+async function getAuthUrl({ uid }) {
     const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
     const method = 'getChannelUrlByType';
     const bisData = {
@@ -187,7 +187,7 @@ async function goodsListV2({ jxCode, offset, pageSize, openid, chanTag }) {
     const bisData = {
         request: {
             jxCode: jxCode,
-            sourceType:1,
+            sourceType: 1,
             requestId: "mike" + Date.parse(new Date()),
             chanTag: chanTag || 'defaultChanTag',
             openId: openid || 'defaultOpenId',
@@ -203,26 +203,33 @@ async function goodsListV2({ jxCode, offset, pageSize, openid, chanTag }) {
 
 
 /**
- * vip cps商品营销信息接口，获取商品的市场价、商品详情、佣金等信息
+ * vip cps商品营销信息接口，获取商品的市场价、商品详情、佣金等信息,https://vop.vip.com/home#/api/method/detail/com.vip.adp.api.open.service.UnionGoodsV2Service-2.0.0/getGoodsDetailMarketing
  * @param {*} goodsId 
  * @param {*} openid 
  * @param {*} chanTag 
  * @returns  
  */
-async function getGoodsMarketPrice({goodsId, openid, chanTag}) {
+async function getGoodsMarketPrice({ goodsId, openid, chanTag }) {
     const service = 'com.vip.adp.api.open.service.UnionGoodsV2Service';
     const method = 'getGoodsDetailMarketing';
     const bisData = {
         request: {
+            queryDetail: true,
             goodsId: goodsId,
             requestId: "mike" + Date.parse(new Date()),
-            chanTag: chanTag ||'defaultChanTag',
-            openId: openid ||'defaultOpenId',
+            chanTag: chanTag || 'defaultChanTag',
+            openId: openid || 'defaultOpenId',
             realCall: true
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    return response;
+
+    if (response.returnCode === '0') {
+        return response.result;
+    }else{
+        return false
+    }
+
 }
 
 
@@ -360,7 +367,7 @@ async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd 
     const method = 'orderList';
     const bisData = {
         queryModel: {
-            status: status||null,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
+            status: status || null,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
             orderTimeStart: Date.parse(new Date(orderTimeStart)),
             orderTimeEnd: Date.parse(new Date(orderTimeEnd)),
             page: page,

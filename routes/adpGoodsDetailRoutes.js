@@ -8,6 +8,6 @@ const express = require('express');
 const router = express.Router();
 const goods = require('../controllers/adpGoodsDetailController');
 
-router.get('/', goods.getGoodsMarketPrice);
+router.get('/getDetail', goods.getGoodsDetail);
 
 module.exports = router;

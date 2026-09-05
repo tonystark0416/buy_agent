@@ -4,19 +4,21 @@
  * @author liuweizhao
  * @date 2024-06-01
  */
-const vipService = require('../services/platforms/vipService');
+// const vipService = require('../services/platforms/vipService');
+const goodsDetailService = require('../services/adpGoodsDetailService');
 
-exports.getGoodsMarketPrice = async (req, res, next) => {
+exports.getGoodsDetail = async (req, res, next) => {
 
   try {
-    const { goodsId, openid, chanTag } = req.query;
-    if (!goodsId || !openid || !chanTag) {
-      return res.status(400).json({ error: '所有参数都不能为空' });
+    const { platform, goodsId, uid,pid, chanTag } = req.query;
+
+    if (!platform || !goodsId) {
+      return res.status(400).json({result:false,message: 'platform和goodsId不能为空'});
     }
+    
+    const data = await goodsDetailService.getGoodsDetail({ platform, goodsId, uid, pid, chanTag });
+    res.json({result:true,data});
 
-    const results = await vipService.getGoodsMarketPrice(req.query); //调用服务获取数据
-
-    res.json({ success: true, data: results, count: results.length }); //返回数据给前端
   } catch (err) {
     next(err);
   }

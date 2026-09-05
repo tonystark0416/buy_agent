@@ -2,7 +2,7 @@
 require('dotenv').config();
 
 const {getOrderInfo,getGoodsInfo} = require('./services/platforms/meituanService.js');
-
+const {getGoodsMarketPrice} = require('./services/platforms/vipService.js');
 
 
 // loginByOpenid('1oQh9360gmrfyT-xh0NApYkmgECtM').then(res => {
@@ -10,13 +10,10 @@ const {getOrderInfo,getGoodsInfo} = require('./services/platforms/meituanService
 // }).catch(err => {
 //     console.error(err);
 // })
-let obj = {
-    searchText:'鸡翅',
-   productViewSignList:"DALMNW42ECGBNCIJATIMBTW3XI"
-}
+let obj = {goodsId:'6921788910089450713', openid:'175', chanTag:'123213'}
 
-getGoodsInfo(obj).then(res => {
-    console.log(res.data);
+getGoodsMarketPrice(obj).then(res => {
+    console.log(JSON.stringify(res));
 }).catch(err => {
     console.error(err);
 });
