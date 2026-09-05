@@ -14,12 +14,22 @@ const adpTranUrlService = require('../services/adpTranUrlService.js');
  * @param {*} req
  * @param {*} res
  */
-exports.tranUrl = async function(req, res) {
+exports.tranUrl = async function (req, res) {
   try {
     const { uid, pid, source_url } = req.query;
     const resultUrl = await adpTranUrlService.tranUrl({ uid, pid, source_url });
-    res.json({...resultUrl });
+    res.json({ result: true,...resultUrl });
   } catch (error) {
-    res.status(500).json(...resultUrl);
+    res.status(500).json({ result: false, message: error.message });
+  }
+}
+
+exports.tranUrlByGoodsId = async function (req, res) {
+  try {
+    const { platform, goodsId, uid, pid } = req.query;
+    const resultData = await adpTranUrlService.tranUrlByGoodsId({ platform, goodsId, uid, pid });
+    res.json({ result: true, ...resultData });
+  } catch (error) {
+    res.status(500).json({ result: false, message: error.message });
   }
 }

@@ -2,7 +2,8 @@
 require('dotenv').config();
 
 const {getOrderInfo,getGoodsInfo} = require('./services/platforms/meituanService.js');
-const {getGoodsMarketPrice} = require('./services/platforms/vipService.js');
+const {genByGoodsId} = require('./services/platforms/vipService.js');
+const {tranUrlByGoodsId} = require('./services/adpTranUrlService.js');
 
 
 // loginByOpenid('1oQh9360gmrfyT-xh0NApYkmgECtM').then(res => {
@@ -10,9 +11,9 @@ const {getGoodsMarketPrice} = require('./services/platforms/vipService.js');
 // }).catch(err => {
 //     console.error(err);
 // })
-let obj = {goodsId:'6921788910089450713', openid:'175', chanTag:'123213'}
+let obj = {goodsId:'6921788910089450713',platform:'vip', uid:'175', pid:'123213'}
 
-getGoodsMarketPrice(obj).then(res => {
+tranUrlByGoodsId(obj).then(res => {
     console.log(JSON.stringify(res));
 }).catch(err => {
     console.error(err);

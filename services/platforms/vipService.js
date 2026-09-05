@@ -265,6 +265,7 @@ async function vipLinkCheck(content) {
 * @returns 返回连接数组
  */
 async function genByGoodsId({ goodsId, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }) {
+    console.log('调用 VIP 生成推广链接接口，参数：', { goodsId, openId, chanTag, statParam, genAuthorityUrl, giftCode });
     const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
     const method = 'genByGoodsId';
     const bisData = {
@@ -282,7 +283,7 @@ async function genByGoodsId({ goodsId, openId, chanTag, statParam, genAuthorityU
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    return response?.result?.urlInfoList;
+    return response?.result?.urlInfoList[0] || null;    
 }
 
 
