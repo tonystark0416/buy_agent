@@ -50,16 +50,16 @@ async function updateOrder(orderData) {
  * 
  */
 async function getOrderListByUid(params) {
-    const { uid, page } = params
-    const sqlCount = 'SELECT count(*) as total FROM adp_order where uid =? '
-    const sqlList = 'SELECT * FROM adp_order where uid =? ORDER BY create_time DESC limit ?,? '
+    const { uid, page,platform } = params
+    const sqlCount = 'SELECT count(*) as total FROM adp_order where uid =? AND platform =? '
+    const sqlList = 'SELECT * FROM adp_order where uid =? AND platform =? ORDER BY create_time DESC limit ?,? '
     const pageSize = 10
     const pageNo = (page - 1) * pageSize;
     
 
-    const [countRows] = await pool.execute(sqlCount, [uid]); //统计总数
+    const [countRows] = await pool.execute(sqlCount, [uid,platform]); //统计总数
     console.log(countRows)
-    const [rows] = await pool.execute(sqlList, [uid, pageNo, pageSize]); //分页查询
+    const [rows] = await pool.execute(sqlList, [uid, platform, pageNo, pageSize]); //分页查询
 
     const total = countRows[0]?.total || 0
     const totalPages = Math.ceil(total / pageSize);
