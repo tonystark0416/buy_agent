@@ -122,12 +122,12 @@ async function saveOrdersToDatabase(orders) {
             platform: 'vip',                     // 平台固定
             order_amount: order.totalCost,
             commission: order.commission,
-            create_time: order.orderTime,
+            create_time: formatBeijing(new Date(order.orderTime)),
             uid: order.openId,
             goods_id :goods_id,
             goods_name,
             goods_img_url,
-            update_time:order.lastUpdateTime
+            update_time:formatBeijing(new Date(order.lastUpdateTime))
         };
 
         try {
@@ -225,6 +225,6 @@ async function pullOrdersByDateRange(startDate, endDate) {
 
 
 (async () => {
-    const orders = await pullOrdersByDateRange('2026-08-28', '2026-09-02');
+    const orders = await pullOrdersByDateRange('2026-07-09', '2026-07-09');
     console.log('总订单数:', orders.length);
 })();

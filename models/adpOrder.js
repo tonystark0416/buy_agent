@@ -40,7 +40,7 @@ async function createAdpOrder(orderData) {
  */
 async function updateOrder(orderData) {
     const { order_sn, status, uid, goods_id, goods_name,goods_img_url,platform, order_amount, commission, create_time, update_time } = orderData
-    const [result] = await pool.execute('UPDATE adp_order SET status = ? ,uid=?,goods_id=? ,goods_name=?,goods_img_url=?,update_time=? WHERE order_sn = ?', [status, uid, goods_id, goods_name,goods_img_url,update_time, order_sn]);
+    const [result] = await pool.execute('UPDATE adp_order SET status = ? ,uid=?,goods_id=? ,goods_name=?,goods_img_url=?,platform=?,order_amount=?,commission=?,update_time=?,create_time=? WHERE order_sn = ?', [status, uid, goods_id, goods_name,goods_img_url,platform,order_amount,commission,update_time,create_time ,order_sn]);
     // console.log(result);
     return result.affectedRows > 0 || false;
 }
@@ -52,7 +52,7 @@ async function updateOrder(orderData) {
 async function getOrderListByUid(params) {
     const { uid, page } = params
     const sqlCount = 'SELECT count(*) as total FROM adp_order where uid =? '
-    const sqlList = 'SELECT * FROM adp_order where uid =? ORDER BY create_time limit ?,? '
+    const sqlList = 'SELECT * FROM adp_order where uid =? ORDER BY create_time DESC limit ?,? '
     const pageSize = 10
     const pageNo = (page - 1) * pageSize;
     

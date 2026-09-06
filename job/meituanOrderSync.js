@@ -7,7 +7,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { getOrderInfo, } = require('../services/platforms/meituanService');
 const { createAdpOrder, findOrder, updateOrder } = require('../models/adpOrder');
-
+const { formatBeijing } = require('../utils/timeUtils');
 
 /**
  * 保存或更新订单到数据库
@@ -31,12 +31,12 @@ async function saveOrdersToDatabase(orders) {
             platform: 'meituan',                     // 平台固定
             order_amount: order.payPrice,
             commission: order.profit,
-            create_time: order.payTime,
+            create_time: formatBeijing(new Date(order.payTime*1000)),
             uid: order.sid,
             goods_id: goods_id,
             goods_name,
             goods_img_url,
-            update_time: order.updateTime
+            update_time: formatBeijing(new Date(order.updateTime*1000))
         };
 
         try {
@@ -119,7 +119,7 @@ async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
             startTime: startTimestamp,
             endTime: endTimestamp,
             page: page,
-            platform:2
+            platform:1
         };
         console.log(`[正在请求] 第 ${page} 页`);
 
@@ -167,6 +167,6 @@ async function pullOrdersByDateRange(startDate, endDate) {
 
 
 (async () => {
-    const orders = await pullOrdersByDateRange('2026-08-29', '2026-08-31');
+    const orders = await pullOrdersByDateRange('2026-08-01', '2026-08-20');
     console.log('总订单数:', orders.length);
 })();
