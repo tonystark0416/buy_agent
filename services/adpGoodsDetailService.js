@@ -26,7 +26,7 @@ async function getGoodsDetail({ platform, goodsId, uid, pid }) {
             });
 
         case 'pdd':
-            return getPddGoodsDetail({
+            return await getPddGoodsDetail({
                 goods_sign: goodsId,
                 uid,
                 pid,
