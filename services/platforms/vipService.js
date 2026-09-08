@@ -296,15 +296,17 @@ async function genByGoodsId({ goodsId, openId, chanTag, statParam, genAuthorityU
 * @param {*} chanTag 
 * @returns 返回连接数组
 */
-async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }) {
+async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUrl = false, giftCode, targetType, targetValueList }) {
     const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
     const method = 'genByVIPUrl';
     const bisData = {
         requestId: "mike" + Date.parse(new Date()),
-        urlList: [urlList],
+        urlList: urlList,
         chanTag: chanTag || 'defaultChanTag',            //推广位pid
         statParam: statParam || "defaultStat",          //自定义统计参数，选填                               
         urlGenRequest: {
+            targetType:targetType,
+            targetValueList:targetValueList,
             openId: openId || 'defaultOpenId',    //用户唯一标识,接口必传
             genShortUrl: true,                   //是否生成短链接，默认为true
             realCall: true,
@@ -314,6 +316,7 @@ async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUr
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
+    console.log(response);
     return response
 }
 

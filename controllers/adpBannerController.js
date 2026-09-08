@@ -15,3 +15,13 @@ exports.getBanner = async (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };  
+
+exports.getIndexBannerList = async (req, res) => {
+    try {
+        const banner = await bannerService.indexBannerList();
+        res.json(banner);
+    } catch (error) {
+        console.error('Error in getIndexBannerList:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};

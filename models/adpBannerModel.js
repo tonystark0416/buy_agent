@@ -9,9 +9,9 @@
 
 const pool = require('../utils/database.js');
 
-async function findBanner() {
+async function findBanner(type) {
     // console.log(phone);
-    const [rows] = await pool.execute('SELECT * FROM adp_banner order by sort desc');
+    const [rows] = await pool.execute('SELECT * FROM adp_banner where type =? order by sort desc', [type]);
     return rows || null;
 }
 

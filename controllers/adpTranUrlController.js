@@ -16,8 +16,8 @@ const adpTranUrlService = require('../services/adpTranUrlService.js');
  */
 exports.tranUrl = async function (req, res) {
   try {
-    const { uid, pid, source_url } = req.query;
-    const resultUrl = await adpTranUrlService.tranUrl({ uid, pid, source_url });
+    const { uid, pid, source_url, targetType, targetValueList } = req.query;
+    const resultUrl = await adpTranUrlService.tranUrl({ uid, pid, source_url, targetType, targetValueList });
     res.json({ result: true,...resultUrl });
   } catch (error) {
     res.status(500).json({ result: false, message: error.message });

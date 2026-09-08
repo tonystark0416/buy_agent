@@ -7,5 +7,6 @@ const router = express.Router();
 const bannerController = require('../controllers/adpBannerController');
 
 router.get('/', bannerController.getBanner);
+router.get('/indexBannerList', bannerController.getIndexBannerList);
 
 module.exports = router;

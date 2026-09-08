@@ -9,11 +9,11 @@ const vipService = require('./platforms/vipService.js');
 
 
 //综合转链服务，入参用户id、推广位id，原始url，获取转换后的链接
-async function tranUrl({ uid, pid, source_url }) {
-
+async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
+    console.log('调用转链服务，参数：', { uid, pid, source_url, targetType, targetValueList });
     //判断参数，全部必传
-    if (!uid || !pid || !source_url) {
-        throw new Error('uid、pid和source_url不能为空');
+    if (!uid || !pid) {
+        throw new Error('uid、pid不能为空');
     }
 
     //定义返回格式
@@ -28,23 +28,27 @@ async function tranUrl({ uid, pid, source_url }) {
     }
 
     //拼多多链接转换
-    async function pddTranUrl({ uid: uid, pid: pid, source_url: source_url }) {
-        console.log(123)
-        const result = await pdd.urlGen({ uid: uid, pid: pid, source_url: source_url });
-        if (result.goods_zs_unit_generate_response) {
-            resultData.code = 200;
-            resultData.urls.h5_url = result.goods_zs_unit_generate_response.short_url;
-            resultData.urls.weapp_url = result.goods_zs_unit_generate_response.weixin_long_link;
-            return resultData
-        }
-    }
+    // async function pddTranUrl({ uid: uid, pid: pid, source_url: source_url }) {
+    //     console.log(123)
+    //     const result = await pdd.urlGen({ uid: uid, pid: pid, source_url: source_url });
+    //     if (result.goods_zs_unit_generate_response) {
+    //         resultData.code = 200;
+    //         resultData.urls.h5_url = result.goods_zs_unit_generate_response.short_url;
+    //         resultData.urls.weapp_url = result.goods_zs_unit_generate_response.weixin_long_link;
+    //         return resultData
+    //     }
+    // }
 
 
     //唯品会链接转换,返回的urlInfoList是个数组，里面有多个url对象，取第一个即可
-    async function vipTranUrl({ uid: uid, pid: pid, source_url: source_url }) {
-        const result = await vip.genByVIPUrl({
-            urlList: source_url, openId: uid,
-            chanTag: 'defaultChanTag', statParam: 'defaultStatParam'
+    async function vipTranUrl({ uid, pid, source_url, targetType, targetValueList }) {
+        const result = await vipService.genByVIPUrl({
+            urlList: [source_url],
+            openId: uid,
+            chanTag: pid, 
+            statParam: 'defaultStatParam',
+            targetType: targetType,
+            targetValueList: targetValueList
         })
 
         if (result.returnCode === '0' && result?.result?.urlInfoList?.length > 0) {
@@ -65,7 +69,7 @@ async function tranUrl({ uid, pid, source_url }) {
     }
 
     if (source_url.toLowerCase().includes('vip.com')) {
-        return await vipTranUrl({ uid: uid, pid: pid, source_url: source_url })
+        return await vipTranUrl({ uid, pid, source_url, targetType, targetValueList })
     }
     return { code: -2, message: '不支持的第三方平台链接' };
 
@@ -98,7 +102,7 @@ async function tranUrlByGoodsId({ platform, goodsId, uid, pid }) {
     }
     switch (platform) {
         case 'vip':
-            const urlResult = await vipService.genByGoodsId({ goodsId, openId: uid, chanTag: pid || 'default_chanTag'});
+            const urlResult = await vipService.genByGoodsId({ goodsId, openId: uid, chanTag: pid || 'default_chanTag' });
             return normalizeVipGenUrlByGoods(urlResult, goodsId);
 
         // case 'pdd':
