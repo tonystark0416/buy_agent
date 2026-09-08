@@ -5,6 +5,7 @@ const {getOrderInfo,getGoodsInfo} = require('./services/platforms/meituanService
 const {genByGoodsId} = require('./services/platforms/vipService.js');
 const {tranUrlByGoodsId} = require('./services/adpTranUrlService.js');
 const {formatBeijing}= require('./utils/timeUtils.js');
+const {register} = require('./controllers/adpUserController.js');
 
 // loginByOpenid('1oQh9360gmrfyT-xh0NApYkmgECtM').then(res => {
 //     console.log(res);
@@ -14,8 +15,8 @@ const {formatBeijing}= require('./utils/timeUtils.js');
 let obj = {longitude:113.227669, latitude:23.093816, platform:2,listTopiId:2}
 // 113.227669,23.093816
 //  const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList,listTopiId} = params;
-getGoodsInfo(obj).then(res => {
-    console.log(JSON.stringify(res));
+register('13143510263').then(res => {
+    console.log(res);
 }).catch(err => {
     console.error(err);
 });

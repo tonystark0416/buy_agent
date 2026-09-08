@@ -21,6 +21,13 @@ async function findByOpenid(openid) {
     return rows[0] || null;
 }
 
+async function updateUserInfo(user,openid) {
+    const sql = 'UPDATE adp_user SET phone = ?, openid = ? WHERE id = ?';
+    const [result] = await pool.execute(sql, [user.phone, openid, user.id]);
+    return result;
+}
+
+
 async function createUser(phone, password =null, openid = null) {
     console.log(phone, password, openid);
     const [result] = await pool.execute('INSERT INTO adp_user (phone, password, openid) VALUES (?, ?, ?)', [phone, password, openid]);
@@ -32,5 +39,6 @@ async function createUser(phone, password =null, openid = null) {
 module.exports = {
     findByPhone,
     createUser,
-    findByOpenid
+    findByOpenid,
+    updateUserInfo
 };

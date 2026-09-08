@@ -39,7 +39,7 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ error: '手机号格式不正确' });
     }
 
-    const data = await userService.register(phone, null,openid);
+    const data = await userService.register( { phone, openid } );
     res.status(200).json({ success: true, data });
   } catch (err) {
     res.status(200).json({ code:201,error: err.message });

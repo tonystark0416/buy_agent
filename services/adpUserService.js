@@ -42,12 +42,17 @@ async function loginByPassword(phone, password) {
 //支持单纯手机号注册并登陆
 //支持手机号+openid注册并登陆
 //支持手机号+密码注册并登陆
-async function register(phone, password, openid) {
+async function register({phone, password, openid}) {
 
   //支持单纯手机号注册并登陆
   const existingUser = await UserModel.findByPhone(phone);
+  // console.log('existingUser:', existingUser);
+  //查询到手机号记录，应该直接登录
   if (existingUser) {
-    throw new Error('该手机号已注册，请直接登录');
+    UserModel.updateUserInfo(existingUser, openid); //更新openid
+    const token = generateToken(existingUser);
+    return { user: formatUser(existingUser), token };
+    // throw new Error('该手机号已注册，请直接登录');
   }
 
   //支持手机号+密码注册并登陆
@@ -99,6 +104,7 @@ function formatUser(user) {
     phone: user.phone,
     nickname: user.nickname,
     avatar: user.avatar,
+    openid: user.openid,
   };
 }
 
