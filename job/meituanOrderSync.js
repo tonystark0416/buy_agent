@@ -119,7 +119,7 @@ async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
             startTime: startTimestamp,
             endTime: endTimestamp,
             page: page,
-            platform:1
+            platform:2
         };
         console.log(`[正在请求] 第 ${page} 页`);
 
@@ -167,6 +167,6 @@ async function pullOrdersByDateRange(startDate, endDate) {
 
 
 (async () => {
-    const orders = await pullOrdersByDateRange('2026-08-01', '2026-08-20');
+    const orders = await pullOrdersByDateRange('2026-09-01', '2026-09-12');
     console.log('总订单数:', orders.length);
 })();

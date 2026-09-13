@@ -225,6 +225,6 @@ async function pullOrdersByDateRange(startDate, endDate) {
 
 
 (async () => {
-    const orders = await pullOrdersByDateRange('2026-07-09', '2026-07-09');
+    const orders = await pullOrdersByDateRange('2026-09-01', '2026-09-12');
     console.log('总订单数:', orders.length);
 })();
