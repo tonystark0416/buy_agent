@@ -85,7 +85,6 @@ async function requestMeituan(url, postData) {
  */
 async function getGoodsInfo(params) {
     const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList,listTopiId,platform} = params;
-    // 获取推广链接接口地址
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_coupon';
 
     const requestData = {
