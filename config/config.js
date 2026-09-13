@@ -26,7 +26,11 @@ const config = {
     meituan_cps_key: {
         appKey: process.env.MT_CPS_APPKEY,
         appSecret: process.env.MT_CPS_APPSECRET,
-    }
+    },
+    taobao_cps_key: {
+        appKey: process.env.TB_CPS_APPKEY,
+        appSecret: process.env.TB_CPS_APPSECRET,
+    },
 }
 
 
