@@ -35,7 +35,7 @@ async function aiChat(messages, onEvent) {
     console.log('----')
     const openai = new OpenAI({
         baseURL: 'https://api.deepseek.com',
-        apiKey: 'sk-0c00dedb721d4c818b743fb637da092d',
+        apiKey: '',
     });
 
     const completion = await openai.chat.completions.create({

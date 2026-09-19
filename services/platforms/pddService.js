@@ -176,10 +176,33 @@ async function getGoodsDetail({goods_sign,uid,pid}) {
 }
 
 
+/**
+ * 通过拼多多商品id生成推广链接 https://jinbao.pinduoduo.com/third-party/api-detail?apiName=pdd.ddk.goods.promotion.url.generate
+ * @param {*} param0 
+ * @returns 
+ */
+async function getPddGenUrlByGoods({goodsId,uid,pid}) {
+    const type = 'pdd.ddk.goods.promotion.url.generate';
+    const bizParams = {
+        goods_sign_list:`['${goodsId}']`, //商品id
+        custom_parameters: `{"uid":"${uid}"}`,
+        p_id: `${pid}`,
+        generate_schema_url:true,
+        generate_short_url:true,
+        generate_we_app:true
+    }
+    console.log('调用拼多多生成推广链接接口，参数：', bizParams);
+    const response = await pddOpenApiRequest(type, bizParams);
+    return response;
+}
+
+
+
 module.exports = {
     searchGoods,
     genAuthUrl,
     checkAuth,
     urlGen,
-    getGoodsDetail
+    getGoodsDetail,
+    getPddGenUrlByGoods
 }

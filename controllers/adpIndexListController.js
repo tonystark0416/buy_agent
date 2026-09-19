@@ -18,7 +18,12 @@ exports.getList = async (req, res) => {
       console.error('Error fetching Meituan goods list:', error);
       res.status(500).json({ error: 'Internal Server Error' });
     }
-  } else {
+  }else if(req.query.tab == '3' ){
+        const pddGoodsList = await adpIndexListService.getAdpIndexList({ tab: '3', ...req.query });
+    res.status(200).json(pddGoodsList);
+  }
+  
+  else {
     res.status(400).json({ error: 'Invalid tab parameter' });
   }
 };

@@ -45,7 +45,7 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
         const result = await vipService.genByVIPUrl({
             urlList: [source_url],
             openId: uid,
-            chanTag: pid, 
+            chanTag: pid,
             statParam: 'defaultStatParam',
             targetType: targetType,
             targetValueList: targetValueList
@@ -84,48 +84,67 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
  * @param {string} param0.uid 用户id
  * @param {string} param0.pid 推广位id
  * 
- * return {Object} resultData 转换后的链接数据
- *  {
- *      goodsId: '', //商品id
- *      urls: {
- *          h5_url: '', //h5链接
- *          weapp_url: '', //小程序链接路径
- *          deeplink_url: '', //app唤起链接
- *          command: '' //唯品会专属口令
- *      }
- *  }   
+ * @returns {Object} 返回格式
  */
 async function tranUrlByGoodsId({ platform, goodsId, uid, pid }) {
-    // { goodsId, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }
-    if (!platform || !goodsId) {
+
+    //格式化唯品会数据
+    function normalizeVipGenUrlByGoods(item, goodsId) {
+        return {
+            goodsId: goodsId,
+            urls: {
+                h5_url: item.url || '', //h5链接
+                weapp_url: item.vipWxUrl || '', //小程序链接路径
+                weapp_source_id:'gh_8ed2afad9972',
+                weapp_app_id:'wxe9714e742209d35f',
+                deeplink_url: item.deeplinkUrl || '', //app唤起链接
+                command: item.onlyCommand || '' //唯品会专属口令
+            }
+        }
+    }
+
+
+    //格式化拼多多数据
+    function normalizePddGenUrlByGoods(item, goodsId) {
+        return {
+            goodsId: goodsId,
+            urls: {
+                h5_url: item.goods_promotion_url_generate_response.goods_promotion_url_list[0].short_url, //h5链接
+                weapp_url: item.goods_promotion_url_generate_response.goods_promotion_url_list[0].we_app_info.page_path, //小程序链接路径
+                weapp_source_id: item.goods_promotion_url_generate_response.goods_promotion_url_list[0].we_app_info.user_name, //小程序source_id
+                weapp_app_id: item.goods_promotion_url_generate_response.goods_promotion_url_list[0].we_app_info.app_id, //小程序source_id
+                deeplink_url: item.goods_promotion_url_generate_response.goods_promotion_url_list[0].schema_url, //app唤起链接
+                command: item.onlyCommand || '' //唯品会专属口令
+            }
+        }
+    }
+
+
+    //参数判断
+    if (!platform || !goodsId || !uid ) {
         throw new Error('platform和goodsId不能为空');
     }
+
+
     switch (platform) {
         case 'vip':
-            const urlResult = await vipService.genByGoodsId({ goodsId, openId: uid, chanTag: pid || 'default_chanTag' });
-            return normalizeVipGenUrlByGoods(urlResult, goodsId);
+            const urlVipResult = await vipService.genByGoodsId({ goodsId, openId: uid, chanTag: pid || 'default_chanTag' });
+            return normalizeVipGenUrlByGoods(urlVipResult, goodsId);
 
-        // case 'pdd':
-        //     return await getPddGenUrlByGoods({ platform, goodsId, uid, pid });
-
+        case 'pdd':
+            const urlPddResult = await pddService.getPddGenUrlByGoods({ goodsId, uid, pid: '43384525_317172887' }); //写死pid
+            return normalizePddGenUrlByGoods(urlPddResult, goodsId);
         default:
             throw new Error(`不支持的平台: ${platform}`);
     }
 
 }
 
-//格式化唯品会数据
-function normalizeVipGenUrlByGoods(item, goodsId) {
-    return {
-        goodsId: goodsId,
-        urls: {
-            h5_url: item.url || '', //h5链接
-            weapp_url: item.vipWxUrl || '', //小程序链接路径
-            deeplink_url: item.deeplinkUrl || '', //app唤起链接
-            command: item.onlyCommand || '' //唯品会专属口令
-        }
-    }
-}
+
+
+
+
+
 
 module.exports = {
     tranUrl, tranUrlByGoodsId

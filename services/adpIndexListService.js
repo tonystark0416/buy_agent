@@ -7,6 +7,7 @@
 
 const vipService = require('./platforms/vipService');
 const meituanService = require('./platforms/meituanService');
+const pddGoodsList = require('../models/adpGoodsModel')
 
 async function getAdpIndexList({ tab, offset, pageSize, uid, pid, longitude, latitude }) {
     // const {tab} = params;
@@ -23,6 +24,11 @@ async function getAdpIndexList({ tab, offset, pageSize, uid, pid, longitude, lat
             const listTopiId = 2; // 到店业务类型支持查询：2 今日必推，3 同城热销（全部商品），5 实时热销
             const resultMeituan = await meituanService.getGoodsInfo({ longitude, latitude, platform, listTopiId });
             return resultMeituan;
+
+         case '3':
+            // console.log({ tab, offset, pageSize, uid, pid, longitude, latitude })
+            const resultPdd = await pddGoodsList.selectGoodsList();
+            return resultPdd;
         default:
             break;
     }
