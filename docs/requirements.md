@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.0
-- 更新日期：2026-09-18
+- 文档版本：v1.1
+- 更新日期：2026-09-20
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -48,7 +48,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 │   └── life/              # 美团等本地生活业务
 ├── services/              # 业务服务层（聚合、格式化、统一出参）
 │   └── platforms/         # 平台适配层：vip / pdd / taobao / jd / meituan / weixin
-├── models/                # 数据访问层：adp_user / adp_order / adp_banner / verification_codes
+├── models/                # 数据访问层：adp_user / adp_order / adp_banner / adp_goods / verification_codes
 ├── job/                   # 订单同步任务：vipOrderSync / meituanOrderSync
 ├── utils/                 # database 连接池 / meituan 签名 / 时间工具
 ├── sql/init.sql           # 建表脚本
@@ -112,7 +112,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | API | 方法 | 说明 |
 |---|---|---|
 | `/api/tranUrl` | GET | 按原始 URL 转链：自动识别链接中的 `pinduoduo` / `vip.com` 域名分发（pdd 转链当前被注释禁用，仅 vip 可用）；返回 h5_url、weapp_url、weapp_short_link、deeplink_url |
-| `/api/tranUrl/genUrlByGoodsId` | GET | 按商品 ID 转链：目前仅支持 vip，返回 h5_url、weapp_url、deeplink_url、command（唯品会口令） |
+| `/api/tranUrl/genUrlByGoodsId` | GET | 按商品 ID 转链：支持 vip / pdd；返回 goodsId + urls{ h5_url, weapp_url, weapp_source_id, weapp_app_id, deeplink_url, command }。pdd 走 `pdd.ddk.goods.promotion.url.generate`，vip 走 genByGoodsId |
+
+**注意（2026-09-20）**：按商品 ID 转链的 pdd 分支中 `pid` 写死为 `43384525_317172887`，vip 分支的小程序 `weapp_source_id`（gh_8ed2afad9972）/`weapp_app_id`（wxe9714e742209d35f）写死在代码中，见问题清单 P2-5。
 
 ### 3.6 首页列表模块（/api/indexList）
 
@@ -122,6 +124,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|
 | 1 | 精选商品（唯品会好货频道） | vipService.goodsListV2，jxCode=`dz5d5n7i` |
 | 2 | 本地生活到店商品（今日必推） | meituanService.getGoodsInfo（platform=2 到店业务，listTopiId=2，需经纬度） |
+| 3 | 拼多多运营选品（2026-09-20 新增） | `adp_goods` 表（models/adpGoodsModel.selectGoodsList，查询 platform='pdd' 的运营入库商品） |
 
 ### 3.7 Banner 运营位模块（/api/banner）
 
@@ -179,7 +182,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 平台 | 适配文件 | 已实现能力 | 接入路由状态 |
 |---|---|---|---|
 | 唯品会 vip | `services/platforms/vipService.js` | 商品列表/搜索/详情/转链(URL与商品ID)/礼品券/订单列表/授权(生成、检查、解绑)/链接校验 | ✅ 已接入 |
-| 拼多多 pdd | `services/platforms/pddService.js` | 搜索/详情/转链 urlGen/授权(生成、检查) | ✅ 已接入（转链服务中 pdd 分支被注释） |
+| 拼多多 pdd | `services/platforms/pddService.js` | 搜索/详情/转链 urlGen/按商品ID生成推广链接 getPddGenUrlByGoods/授权(生成、检查) | ✅ 已接入（按 URL 转链分支被注释，按商品 ID 转链已启用） |
 | 美团 meituan | `services/platforms/meituanService.js` | 商品列表/推广链接/订单查询 | ✅ 已接入 |
 | 微信 weixin | `services/platforms/weixinService.js` | access_token / openid / 手机号 | ✅ 已接入 |
 | 淘宝 taobao | `services/platforms/taobaoService.js` | 活动信息/宝贝转链/优选推广/物料推荐 | ❌ **未接入任何路由**（服务已写好，最近一次提交新增） |
@@ -196,6 +199,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - `adp_user`：id, phone, password, nickname, avatar, openid
 - `adp_order`：order_sn, uid, goods_id, goods_name, goods_img_url, status, platform, order_amount, commission, create_time, update_time
 - `adp_banner`：type(1=首页 2=运营位), sort 及链接配置字段
+- `adp_goods`（2026-09-20 新增使用）：运营选品商品表，含 platform 字段（当前用于 pdd 首页 Tab），缺正式 DDL
 - `verification_codes`：phone, code, type(1=登录), expires_at, used
 
 ---
@@ -221,12 +225,13 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 编号 | 级别 | 问题 | 位置 |
 |---|---|---|---|
 | P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner）不一致，且缺 adp_order、adp_banner 的 DDL，新环境无法一键建库 | `sql/init.sql` |
-| P1-2 | 高 | **敏感信息硬编码**：DeepSeek API Key 明文写死、JWT 密钥写死（`19910416`）、DB 密码有默认明文兜底，存在泄漏风险（该 API Key 已暴露在 git 历史中，建议作废更换并改走 .env） | `services/aiService.js`、`services/adpUserService.js`、`config/config.js` |
+| P1-2 | 高 | **敏感信息硬编码**：~~DeepSeek API Key 明文写死~~（2026-09-20 已从代码清除，但历史提交中仍存在，建议作废该 Key；当前代码中为空字符串，AI 对话功能不可用，需改走 .env 环境变量）；JWT 密钥仍写死（`19910416`）、DB 密码有默认明文兜底 | `services/aiService.js`、`services/adpUserService.js`、`config/config.js` |
 | P1-3 | 高 | 订单同步任务写死补拉日期（2026-09-01 ~ 2026-09-12）且以立即执行 IIFE 方式运行，cron 调度被注释；`node server` 时任务不会自动执行，也未纳入统一调度 | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
 | P2-1 | 中 | `adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛 `pddTranUrl is not defined` 运行时错误 | `services/adpTranUrlService.js` |
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
 | P2-3 | 中 | `updateUserInfo` 将 openid 直接覆盖到已有用户，可能与"openid 一对一绑定"规则冲突（A 用户手机号登录会顶掉原绑定关系） | `models/adpUser.js` / `adpUserService.register` |
 | P2-4 | 中 | aiService 工具调用参数 openid/chanTag 写死占位值，未接真实用户上下文；模型名 `deepseek-v4-pro` 与密钥需核实 | `services/aiService.js` |
+| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死（2026-09-20 新增），应迁入配置 | `services/adpTranUrlService.js` |
 | P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
 | P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
 
@@ -243,7 +248,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | 待排期 |
 | B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / verification_codes 正式 DDL 并与代码对齐 | 高 | 待排期 |
 | B-7 | AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化 | 中 | 待排期 |
-| B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 待排期 |
+| B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（2026-09-20 已完成"按商品 ID"的 pdd 转链；"按 URL"的 pdd 分支仍被注释，淘宝识别未做） |
 | B-9 | 验证码登录流程（表已建，短信通道未接） | 低 | 待排期 |
 | B-10 | 工程化：统一响应格式、日志库替换 console.log、ESLint、单测 | 低 | 待排期 |
 
@@ -253,6 +258,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-09-20 | v1.1 | ① 首页新增 Tab=3 拼多多运营选品列表（`adp_goods` 表，新增 `models/adpGoodsModel.js`）；② `/api/tranUrl/genUrlByGoodsId` 新增拼多多支持（`pdd.ddk.goods.promotion.url.generate`），出参增加 `weapp_source_id`/`weapp_app_id`；③ 清除 aiService 中硬编码的 DeepSeek API Key（功能待接 .env 恢复）；④ 新增问题 P2-5（pdd pid、vip 小程序参数硬编码），更新 P1-2、B-8 状态 | `a70cee3` |
 | 2026-09-18 | v1.0 | 初次全量梳理项目并建立需求文档：模块清单、API 清单、平台接入现状、问题清单（P1-1 ~ P3-2）、Backlog（B-1 ~ B-10） | — |
 
 ### 历史 Git 提交摘要（供追溯）
