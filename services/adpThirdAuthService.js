@@ -27,7 +27,7 @@ async function genAuthUrl({ uid, pid, platform }) {
 
   //拼多多
   if (platform === 'pdd') {
-    const result = await pdd.genAuthUrl({ uid: uid, pid: pid });
+    const result = await pdd.genAuthUrl({ uid: uid, pid: '43384525_317172887' });
 
     if (result.rp_promotion_url_generate_response) {
       // return result.rp_promotion_url_generate_response;
@@ -72,7 +72,7 @@ async function checkAuth({ uid, pid, platform }) {
 
   //拼多多
   if (platform === 'pdd') {
-    const result = await pdd.checkAuth({ uid: uid, pid: pid });
+    const result = await pdd.checkAuth({ uid: uid, pid: '43384525_317172887' });
     if (result.authority_query_response.bind) {
       resultCheck.isAuth = true;
     } else {
