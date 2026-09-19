@@ -231,7 +231,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
 | P2-3 | 中 | `updateUserInfo` 将 openid 直接覆盖到已有用户，可能与"openid 一对一绑定"规则冲突（A 用户手机号登录会顶掉原绑定关系） | `models/adpUser.js` / `adpUserService.register` |
 | P2-4 | 中 | aiService 工具调用参数 openid/chanTag 写死占位值，未接真实用户上下文；模型名 `deepseek-v4-pro` 与密钥需核实 | `services/aiService.js` |
-| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死（2026-09-20 新增），应迁入配置 | `services/adpTranUrlService.js` |
+| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；pdd 授权链接生成/检查的 `pid` 同样写死（2026-09-20）；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死，应迁入配置 | `services/adpTranUrlService.js`、`services/adpThirdAuthService.js` |
 | P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
 | P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
 
