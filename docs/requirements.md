@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.2
-- 更新日期：2026-09-29
+- 文档版本：v1.3
+- 更新日期：2026-09-30
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -21,7 +21,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **目标用户**：通过微信小程序使用导购服务的 C 端用户；管理 Banner/选品的运营人员。
 
-**当前状态**：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由；AI 聊天功能为原型状态。
+**当前状态**：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由；AI 聊天功能为原型状态；后台管理（订单/用户查询，`/api/admin` + `admin-web/` 前端）已于 2026-09-30 上线（v1.3）。
 
 ---
 
@@ -43,16 +43,22 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 ├── app.js                 # 应用装配（路由注册、JSON 解析、错误处理）
 ├── server.js              # HTTP 启动入口
 ├── config/config.js       # 环境变量配置（DB / 各平台 CPS 密钥 / 微信）
+├── middleware/            # 中间件（adminAuth：后台 JWT 鉴权）
 ├── routes/                # 路由层（12 个模块）
+│   ├── admin/             # 后台管理路由（订单/用户查询，统一 /api/admin 前缀）
 │   └── life/              # 本地生活（美团）
 ├── controllers/           # 控制器层（参数解析、调 service、返回）
-│   └── life/              # 美团等本地生活业务
+│   └── admin/             # 后台管理控制器
 ├── services/              # 业务服务层（聚合、格式化、统一出参）
+│   ├── admin/             # 后台管理服务（登录/订单/用户）
 │   └── platforms/         # 平台适配层：vip / pdd / taobao / jd / meituan / weixin
 ├── models/                # 数据访问层：adp_user / adp_order / adp_banner / adp_goods / verification_codes
+│   └── admin/             # 后台管理数据访问（admin_user / adp_order / adp_user 管理侧查询）
+├── admin-web/             # 后台管理前端工程（Vue3 + Vite + Element Plus，独立 package.json）
 ├── job/                   # 订单同步任务：vipOrderSync / meituanOrderSync
 ├── utils/                 # database 连接池 / meituan 签名 / 时间工具
 ├── sql/init.sql           # 建表脚本
+├── sql/admin.sql          # 后台管理员表 DDL + 种子账号（2026-09-30 新增）
 └── test.js                # 临时测试脚本
 ```
 
@@ -176,6 +182,27 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - 事件回调：`token`（增量文本）、`tool_calls`、`status`（如"正在唯品会搜索..."）、`done`、`error`；
 - 当前状态：**原型/演示阶段**——工具调用的 openid/chanTag 写死为占位值，仅接了唯品会一个工具。
 
+### 3.12 后台管理模块（/api/admin + admin-web/，2026-09-30 新增）
+
+**需求描述**：为运营/开发者提供后台查询订单与用户信息的能力。后端在本服务内以 `/api/admin/*` 路由组隔离实现（不改动既有业务代码，`app.js` 仅新增 2 行挂载）；前端为同仓子目录 `admin-web/`（Vue3 + Vite + Element Plus，独立依赖），开发期经 vite 代理联调。
+
+| API | 方法 | 鉴权 | 说明 |
+|---|---|---|---|
+| `/api/admin/auth/login` | POST | 否 | 管理员登录（username + password，bcrypt 校验），签发独立 JWT（`ADMIN_JWT_SECRET`，8h，payload 含 type='admin'，与 C 端密钥隔离） |
+| `/api/admin/auth/profile` | GET | 是 | 当前管理员信息 |
+| `/api/admin/order/list` | GET | 是 | 订单多条件分页查询：platform（逗号分隔多选）、status、orderSn 精确、goodsName 模糊、uid、startTime/endTime 区间、sortField/sortOrder（白名单排序）；pageSize 上限 100 |
+| `/api/admin/order/detail` | GET | 是 | 订单详情 + 关联用户信息 |
+| `/api/admin/user/list` | GET | 是 | 用户分页查询：phone 模糊、id 精确、openid 精确；**任何用户查询均不返回 password 字段** |
+| `/api/admin/user/detail` | GET | 是 | 用户详情 + 按平台订单汇总（订单数/金额/佣金） |
+
+**鉴权设计**：`middleware/adminAuth.js` 校验 `Authorization: Bearer <token>`，失败统一返回 401 JSON；数据表 `adp_admin_user`（username 唯一、bcrypt 密码哈希、role：admin/operator/readonly、status 启停）。管理员表 DDL 与种子账号（admin/admin123）见 `sql/admin.sql`。
+
+**统一响应结构**（后台模块率先落地，后续可推广至 C 端，关联 B-10）：`{ code: 0, msg: 'ok', data: ... }`；错误 `{ code: 非0, msg, data: null }`。后台控制器自行捕获错误返回结构化 JSON，不依赖原有全局错误处理。
+
+**前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
+
+**部署方式**：`admin-web` 执行 `npm run build` 产出静态文件后由 Nginx 托管并反代 `/api/admin`；或由 Express 静态托管（暂未配置）。启动：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000）。
+
 ---
 
 ## 4. 平台接入现状
@@ -202,6 +229,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - `adp_banner`：type(1=首页 2=运营位), sort 及链接配置字段
 - `adp_goods`（2026-09-20 新增使用）：运营选品商品表，含 platform 字段（当前用于 pdd 首页 Tab）
 - `verification_codes`：phone, code, type(1=登录), expires_at, used
+- `adp_admin_user`（2026-09-30 新增，DDL 见 `sql/admin.sql`）：id, username(唯一), password_hash(bcrypt), nickname, role(admin/operator/readonly), status, last_login_at, create_time, update_time
+
+> 注：`adp_order` 的查询索引（uid/platform/create_time/order_sn）已在 `sql/admin.sql` 中以注释形式提供，尚未在库上执行（后台多条件查询量大时建议启用）。
 
 > 四张业务表 `adp_user / adp_order / adp_banner / adp_goods` 均缺正式 DDL（详见 P1-1）。
 
@@ -218,6 +248,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | `MT_CPS_APPKEY` / `MT_CPS_APPSECRET` | 美团 |
 | `TB_CPS_APPKEY` / `TB_CPS_APPSECRET` | 淘宝联盟 |
 | `WECHAT_APPID` / `WECHAT_APPSECRET` | 微信小程序 |
+| `ADMIN_JWT_SECRET` | 后台管理 JWT 密钥（与 C 端隔离，2026-09-30 新增，已写入 .env） |
 
 ---
 
@@ -253,7 +284,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | B-7 | AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化 | 中 | 待排期 |
 | B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（2026-09-20 已完成"按商品 ID"的 pdd 转链；"按 URL"的 pdd 分支仍被注释，淘宝识别未做） |
 | B-9 | 验证码登录流程（表已建，短信通道未接） | 低 | 待排期 |
-| B-10 | 工程化：统一响应格式、日志库替换 console.log、ESLint、单测 | 低 | 待排期 |
+| B-10 | 工程化：统一响应格式、日志库替换 console.log、ESLint、单测 | 低 | 待排期（后台模块已率先落地统一响应 `{code,msg,data}`） |
+| B-11 | 后台管理系统：登录鉴权 + 订单/用户查询（/api/admin + admin-web 前端） | 高 | ✅ 已完成（2026-09-30，见 3.12；后续可扩展：Dashboard 统计、Banner/选品管理、管理员账号管理） |
 
 ---
 
@@ -261,6 +293,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | — |
 | 2026-09-29 | v1.2 | 一致性审查后修订：① 3.1 业务规则澄清 `register` 与 `loginByOpenid` 的 openid 行为差异，关联空值清空风险；② 4 平台接入现状 vip `vipLinkCheck` 标注未挂路由；③ 5.2 精简 adp_user 字段、补齐四张业务表均缺 DDL 说明；④ 3.6 Tab=3 标注不支持分页/位置参数；⑤ 3.9 同步任务补 meituan 同日期区间与时间戳；⑥ 目录结构 routes 补 life/；⑦ P1-1 范围更新 | — |
 | 2026-09-20 | v1.1 | ① 首页新增 Tab=3 拼多多运营选品列表（`adp_goods` 表，新增 `models/adpGoodsModel.js`）；② `/api/tranUrl/genUrlByGoodsId` 新增拼多多支持（`pdd.ddk.goods.promotion.url.generate`），出参增加 `weapp_source_id`/`weapp_app_id`；③ 清除 aiService 中硬编码的 DeepSeek API Key（功能待接 .env 恢复）；④ 新增问题 P2-5（pdd pid、vip 小程序参数硬编码），更新 P1-2、B-8 状态 | `a70cee3, faf32bd, 44074e5` |
 | 2026-09-18 | v1.0 | 初次全量梳理项目并建立需求文档：模块清单、API 清单、平台接入现状、问题清单（P1-1 ~ P3-2）、Backlog（B-1 ~ B-10） | — |

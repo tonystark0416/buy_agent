@@ -5,3 +5,5 @@ logs/
 # 环境变量
 .env
 .DS_Store
+# 后台前端构建产物
+admin-web/dist/

@@ -12,6 +12,7 @@ const adpTranUrlRoutes = require('./routes/adpTranUrlRoutes.js');
 const meituanRoutes = require('./routes/life/adpMeituanRoutes.js');
 const adpBannerRoutes = require('./routes/adpBannerRoutes.js');
 const adpOrderRoutes = require('./routes/adpOrderRoutes.js')
+const adminRoutes = require('./routes/admin/index.js');  // 后台管理路由
 const app = express();
 
 app.use(express.json());  // 解析 JSON 请求体
@@ -29,6 +30,7 @@ app.use('/api/indexList', adpIndexListRoutes);  // 首页列表相关路由
 app.use('/api/tranUrl', adpTranUrlRoutes);  // 第三方平台链接转换相关路由
 app.use('/api/banner', adpBannerRoutes);  // banner相关路由
 app.use('/api/order',adpOrderRoutes)
+app.use('/api/admin', adminRoutes);  // 后台管理（订单/用户查询）
 
 app.get('/', (req, res) => {
     console.log('log here')
