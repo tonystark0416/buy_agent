@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.1
-- 更新日期：2026-09-20
+- 文档版本：v1.2
+- 更新日期：2026-09-29
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -43,7 +43,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 ├── app.js                 # 应用装配（路由注册、JSON 解析、错误处理）
 ├── server.js              # HTTP 启动入口
 ├── config/config.js       # 环境变量配置（DB / 各平台 CPS 密钥 / 微信）
-├── routes/                # 路由层（12 个模块，life/ 为本地生活类）
+├── routes/                # 路由层（12 个模块）
+│   └── life/              # 本地生活（美团）
 ├── controllers/           # 控制器层（参数解析、调 service、返回）
 │   └── life/              # 美团等本地生活业务
 ├── services/              # 业务服务层（聚合、格式化、统一出参）
@@ -72,9 +73,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | `/api/weixin/getPhone` | GET | 通过 code 获取用户微信手机号 |
 
 **业务规则**：
-- 手机号唯一（`uk_phone`）；openid 与用户一对一绑定，重复绑定时报错提示；
+- 手机号唯一（`uk_phone`）；openid 与用户一对一绑定，但 `register` 接口**不校验 openid 是否已被其他用户绑定**，会直接覆盖（风险见 P2-3）；`loginByOpenid` 仅在 openid 未绑定时返回错误；
 - 注册成功即签发 JWT（含 userId、phone，1 小时有效期）；
-- 手机号已注册时调用注册接口视为登录，并静默更新 openid。
+- 手机号已注册时调用注册接口视为登录，并静默更新 openid；若入参 `openid` 为空字符串/null，会把该用户已绑定的 openid 清空（建议对空值做判断，见 P2-3）。
 
 **数据表**：`adp_user`（id、phone、password、nickname、avatar、openid）、`verification_codes`（验证码，当前未启用短信发送流程）。
 
@@ -124,7 +125,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|
 | 1 | 精选商品（唯品会好货频道） | vipService.goodsListV2，jxCode=`dz5d5n7i` |
 | 2 | 本地生活到店商品（今日必推） | meituanService.getGoodsInfo（platform=2 到店业务，listTopiId=2，需经纬度） |
-| 3 | 拼多多运营选品（2026-09-20 新增） | `adp_goods` 表（models/adpGoodsModel.selectGoodsList，查询 platform='pdd' 的运营入库商品） |
+| 3 | 拼多多运营选品（2026-09-20 新增） | `adp_goods` 表（models/adpGoodsModel.selectGoodsList，查询 platform='pdd' 的运营入库商品）；**不支持分页与经纬度/uid/pid 参数，返回当前平台所有选品** |
 
 ### 3.7 Banner 运营位模块（/api/banner）
 
@@ -152,8 +153,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 **数据表**：`adp_order`（order_sn、uid、goods_id、goods_name、goods_img_url、status、platform、order_amount、commission、create_time、update_time）。
 
 **同步任务（job/）**：
-- `vipOrderSync.js`：唯品会订单拉取。核心逻辑为"按小时区间分片拉取 + 分页 + 去重 + 存在即更新/不存在即插入"；cron 定时调度代码已写好但**当前被注释**，脚本以一次性日期范围补拉方式运行（当前写死 2026-09-01 ~ 2026-09-12）；
-- `meituanOrderSync.js`：美团订单拉取，逻辑同上（订单 uid 取美团侧 sid，时间为秒级时间戳换算北京时间）。
+- `vipOrderSync.js`：唯品会订单拉取。核心逻辑为"按小时区间分片拉取 + 分页 + 去重 + 存在即更新/不存在即插入"；cron 定时调度代码已写好但**当前被注释**，脚本以一次性日期范围补拉方式运行（脚本末尾 IIFE 写死补拉区间 `2026-09-01 ~ 2026-09-12`，截至 2026-09-29 未调整）；
+- `meituanOrderSync.js`：美团订单拉取，逻辑同上（订单 uid 取美团侧 sid，时间为秒级时间戳换算北京时间）；脚本末尾 IIFE 同样写死补拉区间 `2026-09-01 ~ 2026-09-12`，截至 2026-09-29 未调整。
 
 ### 3.10 本地生活（美团）模块（/api/meituan）
 
@@ -181,7 +182,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 平台 | 适配文件 | 已实现能力 | 接入路由状态 |
 |---|---|---|---|
-| 唯品会 vip | `services/platforms/vipService.js` | 商品列表/搜索/详情/转链(URL与商品ID)/礼品券/订单列表/授权(生成、检查、解绑)/链接校验 | ✅ 已接入 |
+| 唯品会 vip | `services/platforms/vipService.js` | 商品列表/搜索/详情/转链(URL与商品ID)/礼品券/订单列表/授权(生成、检查、解绑)/链接校验 vipLinkCheck | ✅ 已接入（vipLinkCheck 未挂路由） |
 | 拼多多 pdd | `services/platforms/pddService.js` | 搜索/详情/转链 urlGen/按商品ID生成推广链接 getPddGenUrlByGoods/授权(生成、检查) | ✅ 已接入（按 URL 转链分支被注释，按商品 ID 转链已启用） |
 | 美团 meituan | `services/platforms/meituanService.js` | 商品列表/推广链接/订单查询 | ✅ 已接入 |
 | 微信 weixin | `services/platforms/weixinService.js` | access_token / openid / 手机号 | ✅ 已接入 |
@@ -196,11 +197,13 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - `users`：手机号唯一，密码哈希、昵称、头像（注：init.sql 中的表名/结构与 models 实际使用的 `adp_user`、`adp_order`、`adp_banner` **不一致**，见问题清单 P1-1）。
 
 ### 5.2 实际使用表（由 models 推断，缺正式 DDL）
-- `adp_user`：id, phone, password, nickname, avatar, openid
+- `adp_user`：id, phone, password, openid（代码未使用 nickname/avatar 字段，数据库是否真有这两列待核）
 - `adp_order`：order_sn, uid, goods_id, goods_name, goods_img_url, status, platform, order_amount, commission, create_time, update_time
 - `adp_banner`：type(1=首页 2=运营位), sort 及链接配置字段
-- `adp_goods`（2026-09-20 新增使用）：运营选品商品表，含 platform 字段（当前用于 pdd 首页 Tab），缺正式 DDL
+- `adp_goods`（2026-09-20 新增使用）：运营选品商品表，含 platform 字段（当前用于 pdd 首页 Tab）
 - `verification_codes`：phone, code, type(1=登录), expires_at, used
+
+> 四张业务表 `adp_user / adp_order / adp_banner / adp_goods` 均缺正式 DDL（详见 P1-1）。
 
 ---
 
@@ -224,7 +227,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 编号 | 级别 | 问题 | 位置 |
 |---|---|---|---|
-| P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner）不一致，且缺 adp_order、adp_banner 的 DDL，新环境无法一键建库 | `sql/init.sql` |
+| P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner/adp_goods）不一致，且 `adp_user / adp_order / adp_banner / adp_goods` 四张业务表均缺正式 DDL，新环境无法一键建库 | `sql/init.sql` |
 | P1-2 | 高 | **敏感信息硬编码**：~~DeepSeek API Key 明文写死~~（2026-09-20 已从代码清除，但历史提交中仍存在，建议作废该 Key；当前代码中为空字符串，AI 对话功能不可用，需改走 .env 环境变量）；JWT 密钥仍写死（`19910416`）、DB 密码有默认明文兜底 | `services/aiService.js`、`services/adpUserService.js`、`config/config.js` |
 | P1-3 | 高 | 订单同步任务写死补拉日期（2026-09-01 ~ 2026-09-12）且以立即执行 IIFE 方式运行，cron 调度被注释；`node server` 时任务不会自动执行，也未纳入统一调度 | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
 | P2-1 | 中 | `adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛 `pddTranUrl is not defined` 运行时错误 | `services/adpTranUrlService.js` |
@@ -258,7 +261,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
-| 2026-09-20 | v1.1 | ① 首页新增 Tab=3 拼多多运营选品列表（`adp_goods` 表，新增 `models/adpGoodsModel.js`）；② `/api/tranUrl/genUrlByGoodsId` 新增拼多多支持（`pdd.ddk.goods.promotion.url.generate`），出参增加 `weapp_source_id`/`weapp_app_id`；③ 清除 aiService 中硬编码的 DeepSeek API Key（功能待接 .env 恢复）；④ 新增问题 P2-5（pdd pid、vip 小程序参数硬编码），更新 P1-2、B-8 状态 | `a70cee3` |
+| 2026-09-29 | v1.2 | 一致性审查后修订：① 3.1 业务规则澄清 `register` 与 `loginByOpenid` 的 openid 行为差异，关联空值清空风险；② 4 平台接入现状 vip `vipLinkCheck` 标注未挂路由；③ 5.2 精简 adp_user 字段、补齐四张业务表均缺 DDL 说明；④ 3.6 Tab=3 标注不支持分页/位置参数；⑤ 3.9 同步任务补 meituan 同日期区间与时间戳；⑥ 目录结构 routes 补 life/；⑦ P1-1 范围更新 | — |
+| 2026-09-20 | v1.1 | ① 首页新增 Tab=3 拼多多运营选品列表（`adp_goods` 表，新增 `models/adpGoodsModel.js`）；② `/api/tranUrl/genUrlByGoodsId` 新增拼多多支持（`pdd.ddk.goods.promotion.url.generate`），出参增加 `weapp_source_id`/`weapp_app_id`；③ 清除 aiService 中硬编码的 DeepSeek API Key（功能待接 .env 恢复）；④ 新增问题 P2-5（pdd pid、vip 小程序参数硬编码），更新 P1-2、B-8 状态 | `a70cee3, faf32bd, 44074e5` |
 | 2026-09-18 | v1.0 | 初次全量梳理项目并建立需求文档：模块清单、API 清单、平台接入现状、问题清单（P1-1 ~ P3-2）、Backlog（B-1 ~ B-10） | — |
 
 ### 历史 Git 提交摘要（供追溯）
