@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const userRoutes = require('./routes/adpUserRoutes.js');
 const thirdAuthRoutes = require('./routes/adpThirdAuthRoutes.js');
-const aiRoutes = require('./routes/agentRoutes');
+// const aiRoutes = require('./routes/agentRoutes');
 const searchRoutes = require('./routes/adpSearchRoutes');
 const adpGoodsDetailRoutes = require('./routes/adpGoodsDetailRoutes');
 const giftCouponRoutes = require('./routes/adpGiftCouponRoutes.js');
@@ -22,7 +22,7 @@ app.use(express.json());  // 解析 JSON 请求体
 app.use('/api/meituan', meituanRoutes);  // 美团相关路由
 app.use('/api/user', userRoutes);  // 用户相关路由
 app.use('/api/thirdAuth', thirdAuthRoutes);  // 第三方授权相关路由
-app.use('/chat', aiRoutes);  // AI 聊天相关路由
+// app.use('/chat', aiRoutes);  // AI 聊天相关路由
 app.use('/api/search', searchRoutes);  // 搜索相关路由
 app.use('/api/goods', adpGoodsDetailRoutes);  // 商品详情相关路由
 app.use('/api/giftCoupons', giftCouponRoutes);  // 礼品券相关路由
@@ -41,6 +41,7 @@ app.get('/', (req, res) => {
 // ===== 后台管理前端静态托管（部署在 /admin 路径）=====
 // 静态文件来自 admin-web 构建产物（本地 npm run build 后上传至服务器该目录）
 const adminDist = path.join(__dirname, 'admin-web', 'dist');
+// console.log(adminDist)
 app.use('/admin', express.static(adminDist));
 // SPA 路由回退：刷新 /admin/order 等路径时不返回 404，而是返回 index.html 由前端路由接管
 app.get(/^\/admin(\/.*)?$/, (req, res) => {
