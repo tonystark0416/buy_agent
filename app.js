@@ -1,5 +1,6 @@
 // app.js
 const express = require('express');
+const path = require('path');
 const userRoutes = require('./routes/adpUserRoutes.js');
 const thirdAuthRoutes = require('./routes/adpThirdAuthRoutes.js');
 const aiRoutes = require('./routes/agentRoutes');
@@ -36,6 +37,15 @@ app.get('/', (req, res) => {
     console.log('log here')
     res.send('Hello, World!');
 })
+
+// ===== 后台管理前端静态托管（部署在 /admin 路径）=====
+// 静态文件来自 admin-web 构建产物（本地 npm run build 后上传至服务器该目录）
+const adminDist = path.join(__dirname, 'admin-web', 'dist');
+app.use('/admin', express.static(adminDist));
+// SPA 路由回退：刷新 /admin/order 等路径时不返回 404，而是返回 index.html 由前端路由接管
+app.get(/^\/admin(\/.*)?$/, (req, res) => {
+    res.sendFile(path.join(adminDist, 'index.html'));
+});
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

@@ -28,8 +28,9 @@ const routes = [
   }
 ]
 
+// BASE_URL 来自 vite 的 base 配置，保证部署在 /admin 子路径时路由正确
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 
