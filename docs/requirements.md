@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.3
-- 更新日期：2026-09-30
+- 文档版本：v1.4
+- 更新日期：2026-10-01
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -194,12 +194,18 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | `/api/admin/order/detail` | GET | 是 | 订单详情 + 关联用户信息 |
 | `/api/admin/user/list` | GET | 是 | 用户分页查询：phone 模糊、id 精确、openid 精确；**任何用户查询均不返回 password 字段** |
 | `/api/admin/user/detail` | GET | 是 | 用户详情 + 按平台订单汇总（订单数/金额/佣金） |
+| `/api/admin/goods/list` | GET | 是 | 运营选品分页查询（adp_goods 表）：platform 筛选（pdd/vip/meituan 白名单）、goodsName 模糊搜索（2026-10-01 新增） |
+| `/api/admin/goods/create` | POST | 是+写权限 | 新增运营选品：goods_name/platform/goods_platform_id 必填，价格非负数字、图片 URL 须 http(s) 开头（长度均按表结构限制） |
+| `/api/admin/goods/update` | PUT | 是+写权限 | 编辑选品（按 id，支持部分字段更新） |
+| `/api/admin/goods/delete` | DELETE | 是+写权限 | 物理删除选品（按 id） |
+
+**商品管理说明（2026-10-01 新增）**：`adp_goods` 为 C 端首页 Tab=3 的数据源，后台增删改**实时生效**（前端页面有提示条说明）。写接口经 `middleware/adminAuth.adminWriteAuth` 拦截 `role='readonly'` 的账号（403），这是后台首个写操作模块，角色权限开始生效。商品图暂采用复制 URL 粘贴方式（无本地上传）。 |
 
 **鉴权设计**：`middleware/adminAuth.js` 校验 `Authorization: Bearer <token>`，失败统一返回 401 JSON；数据表 `adp_admin_user`（username 唯一、bcrypt 密码哈希、role：admin/operator/readonly、status 启停）。管理员表 DDL 与种子账号（admin/admin123）见 `sql/admin.sql`。
 
 **统一响应结构**（后台模块率先落地，后续可推广至 C 端，关联 B-10）：`{ code: 0, msg: 'ok', data: ... }`；错误 `{ code: 非0, msg, data: null }`。后台控制器自行捕获错误返回结构化 JSON，不依赖原有全局错误处理。
 
-**前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
+**前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）、商品管理（筛选 + 表格 + 新增/编辑弹窗 + 删除二次确认；readonly 角色隐藏写入口）（商品管理为 2026-10-01 新增）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
 
 **部署方式**：`admin-web` 执行 `npm run build` 产出静态文件后由 Nginx 托管并反代 `/api/admin`；或由 Express 静态托管（暂未配置）。启动：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000）。
 
@@ -293,7 +299,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
-| 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | — |
+| 2026-10-01 | v1.4 | 后台新增商品管理（adp_goods 运营选品 CRUD）：① 4 个接口 `goods/list/create/update/delete`，字段校验（platform 白名单、goods_platform_id 必填、价格非负、URL 格式）；② 首个写操作模块，`adminWriteAuth` 拦截 readonly 角色（403）；③ 前端商品管理页面（筛选/表格/新增编辑弹窗/删除二次确认，提示数据实时同步 C 端首页 Tab3）；④ 物理删除、不加排序列、商品图为 URL 粘贴（经用户确认）；⑤ `adpGoodsModel`（C 端）与表结构均未改动 | — |
+| 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | `8b7e0b7`（另 `6eb069f` 为 Express 托管 `/admin` 静态路径的部署改动） |
 | 2026-09-29 | v1.2 | 一致性审查后修订：① 3.1 业务规则澄清 `register` 与 `loginByOpenid` 的 openid 行为差异，关联空值清空风险；② 4 平台接入现状 vip `vipLinkCheck` 标注未挂路由；③ 5.2 精简 adp_user 字段、补齐四张业务表均缺 DDL 说明；④ 3.6 Tab=3 标注不支持分页/位置参数；⑤ 3.9 同步任务补 meituan 同日期区间与时间戳；⑥ 目录结构 routes 补 life/；⑦ P1-1 范围更新 | — |
 | 2026-09-20 | v1.1 | ① 首页新增 Tab=3 拼多多运营选品列表（`adp_goods` 表，新增 `models/adpGoodsModel.js`）；② `/api/tranUrl/genUrlByGoodsId` 新增拼多多支持（`pdd.ddk.goods.promotion.url.generate`），出参增加 `weapp_source_id`/`weapp_app_id`；③ 清除 aiService 中硬编码的 DeepSeek API Key（功能待接 .env 恢复）；④ 新增问题 P2-5（pdd pid、vip 小程序参数硬编码），更新 P1-2、B-8 状态 | `a70cee3, faf32bd, 44074e5` |
 | 2026-09-18 | v1.0 | 初次全量梳理项目并建立需求文档：模块清单、API 清单、平台接入现状、问题清单（P1-1 ~ P3-2）、Backlog（B-1 ~ B-10） | — |

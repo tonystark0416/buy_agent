@@ -34,3 +34,17 @@ function adminAuth(req, res, next) {
 
 module.exports = adminAuth;
 module.exports.ADMIN_JWT_SECRET = SECRET;
+
+/**
+ * 写操作鉴权：在登录校验基础上，拦截 readonly 角色的写请求
+ * 用法：router.post('/xxx', adminWriteAuth, handler)
+ */
+function adminWriteAuth(req, res, next) {
+  adminAuth(req, res, () => {
+    if (req.admin.role === 'readonly') {
+      return res.status(403).json({ code: 403, msg: '当前账号为只读角色，无权执行写操作', data: null });
+    }
+    next();
+  });
+}
+module.exports.adminWriteAuth = adminWriteAuth;

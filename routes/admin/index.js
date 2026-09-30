@@ -9,9 +9,11 @@ const adminAuth = require('../../middleware/adminAuth');
 const authRoutes = require('./authRoutes');
 const orderRoutes = require('./orderRoutes');
 const userRoutes = require('./userRoutes');
+const goodsRoutes = require('./goodsRoutes');
 
 router.use('/auth', authRoutes);
 router.use('/order', adminAuth, orderRoutes);
 router.use('/user', adminAuth, userRoutes);
+router.use('/goods', adminAuth, goodsRoutes);
 
 module.exports = router;
