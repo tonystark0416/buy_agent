@@ -8,7 +8,8 @@ const express = require('express');
 const router = express.Router();
 const meituanController = require('../../controllers/life/adpMeituanController');
 
-router.get('/goods', meituanController.getWaimaiGoods);
+router.get('/goods', meituanController.getWaimaiGoodsList);
+router.get('/goodsDetail', meituanController.getWaimaiGoodsDetail);
 router.get('/referral-link-by-goods-id', meituanController.getReferralLinkByGoodsId);
 router.get('/referral-link-by-act-id', meituanController.getReferralLinkByActId);
 router.get('/order-info', meituanController.getOrderInfo);

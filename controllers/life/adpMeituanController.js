@@ -6,16 +6,28 @@
 
 const meituanService = require('../../services/platforms/meituanService');
 
-//获取美团外卖商品信息接口
-exports.getWaimaiGoods = async (req, res, next) => {
-    const  {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField} = req.query;
+//获取美团商品列表接口
+exports.getWaimaiGoodsList = async (req, res, next) => {
+    const  {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList, listTopiId, platform, vpSkuViewIds} = req.query;
     try {
-        const result = await meituanService.getGoodsInfo({searchText, longitude,latitude,pageSize,pageNo,searchId,sortField});
+        const result = await meituanService.getGoodsInfo({searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList, listTopiId, platform, vpSkuViewIds});
         res.json({ success: true, data: result }); //返回数据给前端
     } catch (error) {
         next(error);
     }
 }
+
+//获取美团单个商品信息接口
+exports.getWaimaiGoodsDetail = async (req, res, next) => {
+    const  {productViewSignList} = req.query;
+    try {
+        const result = await meituanService.getGoodsInfo({productViewSignList});
+        res.json({ success: true, data: result }); //返回数据给前端
+    } catch (error) {
+        next(error);
+    }
+}
+
 
 //通过商品id获取链接接口
 exports.getReferralLinkByGoodsId = async (req, res, next) => {
@@ -41,6 +53,9 @@ exports.getReferralLinkByActId = async (req, res, next) => {
     }
 }
 
+
+
+//获取订单信息
 exports.getOrderInfo = async (req, res, next) => {
     // const  {actId} = req.query;
     try {

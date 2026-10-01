@@ -84,7 +84,7 @@ async function requestMeituan(url, postData) {
  * @returns
  */
 async function getGoodsInfo(params) {
-    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList,listTopiId,platform} = params;
+    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList,listTopiId,platform,vpSkuViewIds} = params;
     const API_URL = 'https://media.meituan.com/cps_open/common/api/v1/query_coupon';
 
     const requestData = {
@@ -97,9 +97,10 @@ async function getGoodsInfo(params) {
         sortField: sortField,
         productViewSignList:[productViewSignList],
         listTopiId:listTopiId,
-        platform:platform
+        platform:platform,
+        vpSkuViewIds:[vpSkuViewIds]
     };
-    // console.log(JSON.stringify(requestData));
+    console.log(JSON.stringify(requestData));
 
     const res = await requestMeituan(API_URL, requestData);
     return res;
