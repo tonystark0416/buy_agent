@@ -2,7 +2,7 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.4
+- 文档版本：v1.4.1
 - 更新日期：2026-10-01
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
@@ -166,12 +166,14 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | API | 方法 | 说明 |
 |---|---|---|
-| `/api/meituan/goods` | GET | 外卖商品列表 |
+| `/api/meituan/goods` | GET | 商品列表（query_coupon）；2026-10-01 起完整透传搜索/筛选参数：searchText、经纬度、分页、searchId、sortField、productViewSignList、listTopiId、platform、**vpSkuViewIds**（唯品会侧 sku 召回，单值入参包装为单元素数组） |
+| `/api/meituan/goodsDetail` | GET | 按商品查询单个商品信息（productViewSignList 入参，2026-10-01 新增） |
 | `/api/meituan/referral-link-by-goods-id` | GET | 按商品 ID 获取推广链接 |
 | `/api/meituan/referral-link-by-act-id` | GET | 按活动 ID 获取推广链接 |
 | `/api/meituan/order-info` | GET | 查询订单信息（亦被同步任务复用） |
 
 签名工具：`utils/meituan-sign-util.js`。
+注意：`meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]`（见问题清单 P3-3），当前美团接口容忍空值，尚未修复。
 
 ### 3.11 AI 导购对话模块（/chat）
 
@@ -180,7 +182,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - 模型：DeepSeek（OpenAI 兼容协议，`deepseek-v4-pro`，流式输出）；
 - 工具：`search_vip_goods`（关键词搜索唯品会商品）；
 - 事件回调：`token`（增量文本）、`tool_calls`、`status`（如"正在唯品会搜索..."）、`done`、`error`；
-- 当前状态：**原型/演示阶段**——工具调用的 openid/chanTag 写死为占位值，仅接了唯品会一个工具。
+- 当前状态：**原型/演示阶段**——工具调用的 openid/chanTag 写死为占位值，仅接了唯品会一个工具；
+- **路由状态（2026-10-01）**：`/chat` 路由已在 `app.js` 中注释（`agentRoutes` 引入与挂载两行），AI 对话功能暂时下线（关联提交 `44b1298`，因 API Key 未配置）；恢复时取消注释即可。
 
 ### 3.12 后台管理模块（/api/admin + admin-web/，2026-09-30 新增）
 
@@ -207,7 +210,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）、商品管理（筛选 + 表格 + 新增/编辑弹窗 + 删除二次确认；readonly 角色隐藏写入口）（商品管理为 2026-10-01 新增）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
 
-**部署方式**：`admin-web` 执行 `npm run build` 产出静态文件后由 Nginx 托管并反代 `/api/admin`；或由 Express 静态托管（暂未配置）。启动：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000）。
+**部署方式（2026-09-30 起）**：Express 直接托管前端——`app.js` 中 `express.static(admin-web/dist)` + `/admin` SPA 回退，构建产物上传至服务器 `admin-web/dist` 即可，访问 `http://域名/admin`；线上经宝塔 Node项目运行，域名由宝塔自动反代到 3000 端口。开发：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000，访问 `http://localhost:5173/admin/`）。
 
 ---
 
@@ -217,7 +220,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|---|
 | 唯品会 vip | `services/platforms/vipService.js` | 商品列表/搜索/详情/转链(URL与商品ID)/礼品券/订单列表/授权(生成、检查、解绑)/链接校验 vipLinkCheck | ✅ 已接入（vipLinkCheck 未挂路由） |
 | 拼多多 pdd | `services/platforms/pddService.js` | 搜索/详情/转链 urlGen/按商品ID生成推广链接 getPddGenUrlByGoods/授权(生成、检查) | ✅ 已接入（按 URL 转链分支被注释，按商品 ID 转链已启用） |
-| 美团 meituan | `services/platforms/meituanService.js` | 商品列表/推广链接/订单查询 | ✅ 已接入 |
+| 美团 meituan | `services/platforms/meituanService.js` | 商品列表（含 vpSkuViewIds 筛选）/单品详情 goodsDetail/推广链接/订单查询 | ✅ 已接入 |
 | 微信 weixin | `services/platforms/weixinService.js` | access_token / openid / 手机号 | ✅ 已接入 |
 | 淘宝 taobao | `services/platforms/taobaoService.js` | 活动信息/宝贝转链/优选推广/物料推荐 | ❌ **未接入任何路由**（服务已写好，最近一次提交新增） |
 | 京东 jd | `services/platforms/jdService.js` | genUrl 转链 | ❌ **未接入任何路由** |
@@ -274,6 +277,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；pdd 授权链接生成/检查的 `pid` 同样写死（2026-09-20）；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死，应迁入配置 | `services/adpTranUrlService.js`、`services/adpThirdAuthService.js` |
 | P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
 | P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
+| P3-3 | 低 | `meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]` 发给美团接口（首页 Tab2 调用即触发）；建议改为 `xxx ? [xxx] : []` 兜底（console.log 已于 2026-10-02 关闭） | `services/platforms/meituanService.js`（2026-10-01 新增） |
 
 ---
 
@@ -299,6 +303,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-10-01 | v1.4.1 | 美团模块接口变更同步文档：① 3.10 `/api/meituan/goods` 标注完整参数透传（含 vpSkuViewIds），新增 `/api/meituan/goodsDetail` 单品接口；② 4 平台现状更新美团能力清单；③ 3.11 标注 `/chat` 路由已注释下线；④ 3.12 部署方式更新为 Express 托管 `/admin` + 宝塔 Node项目方案；⑤ 新增问题 P3-3（meituanService `[null]` 兜底缺失与 console.log 打开） | `aea4466`（美团接口）、`44b1298`（/chat 下线）、`6eb069f`（/admin 托管） |
 | 2026-10-01 | v1.4 | 后台新增商品管理（adp_goods 运营选品 CRUD）：① 4 个接口 `goods/list/create/update/delete`，字段校验（platform 白名单、goods_platform_id 必填、价格非负、URL 格式）；② 首个写操作模块，`adminWriteAuth` 拦截 readonly 角色（403）；③ 前端商品管理页面（筛选/表格/新增编辑弹窗/删除二次确认，提示数据实时同步 C 端首页 Tab3）；④ 物理删除、不加排序列、商品图为 URL 粘贴（经用户确认）；⑤ `adpGoodsModel`（C 端）与表结构均未改动 | — |
 | 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | `8b7e0b7`（另 `6eb069f` 为 Express 托管 `/admin` 静态路径的部署改动） |
 | 2026-09-29 | v1.2 | 一致性审查后修订：① 3.1 业务规则澄清 `register` 与 `loginByOpenid` 的 openid 行为差异，关联空值清空风险；② 4 平台接入现状 vip `vipLinkCheck` 标注未挂路由；③ 5.2 精简 adp_user 字段、补齐四张业务表均缺 DDL 说明；④ 3.6 Tab=3 标注不支持分页/位置参数；⑤ 3.9 同步任务补 meituan 同日期区间与时间戳；⑥ 目录结构 routes 补 life/；⑦ P1-1 范围更新 | — |

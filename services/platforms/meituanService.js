@@ -100,7 +100,7 @@ async function getGoodsInfo(params) {
         platform:platform,
         vpSkuViewIds:[vpSkuViewIds]
     };
-    console.log(JSON.stringify(requestData));
+    // console.log(JSON.stringify(requestData));
 
     const res = await requestMeituan(API_URL, requestData);
     return res;
