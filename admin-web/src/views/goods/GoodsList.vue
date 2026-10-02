@@ -139,9 +139,14 @@ const PLATFORMS = [
   { value: 'meituan', label: '美团' }
 ]
 
-// 只读角色隐藏写操作入口
+// 只读角色隐藏写操作入口（localStorage 数据损坏时按无权限处理，避免白屏）
 const canWrite = computed(() => {
-  const info = JSON.parse(localStorage.getItem('admin_info') || 'null')
+  let info = null
+  try {
+    info = JSON.parse(localStorage.getItem('admin_info') || 'null')
+  } catch (e) {
+    info = null
+  }
   return info && info.role !== 'readonly'
 })
 

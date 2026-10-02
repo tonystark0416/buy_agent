@@ -40,15 +40,45 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { getProfile } from '../api/auth'
 
 const router = useRouter()
 
-const adminName = computed(() => {
-  const info = JSON.parse(localStorage.getItem('admin_info') || 'null')
-  return info ? (info.nickname || info.username) : '管理员'
+// 安全读取 localStorage 中的管理员信息（数据损坏时返回 null，避免白屏）
+function parseAdminInfo() {
+  try {
+    return JSON.parse(localStorage.getItem('admin_info') || 'null')
+  } catch (e) {
+    return null
+  }
+}
+
+const adminName = ref('')
+adminName.value = (() => {
+  const info = parseAdminInfo()
+  return info ? (info.nickname || info.username || '管理员') : '管理员'
+})()
+
+// 每次进入后台时刷新管理员信息，避免登录后角色被修改而前端仍用旧缓存
+onMounted(async () => {
+  try {
+    const profile = await getProfile()
+    if (profile) {
+      const info = {
+        id: profile.id,
+        username: profile.username,
+        nickname: profile.nickname,
+        role: profile.role
+      }
+      localStorage.setItem('admin_info', JSON.stringify(info))
+      adminName.value = info.nickname || info.username || '管理员'
+    }
+  } catch (e) {
+    // 拉取失败（如 token 过期）时由 axios 拦截器统一处理，这里忽略
+  }
 })
 
 function logout() {

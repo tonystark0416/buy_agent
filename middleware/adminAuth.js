@@ -8,11 +8,11 @@ const jwt = require('jsonwebtoken');
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
 if (!ADMIN_JWT_SECRET) {
-  // 未配置时使用开发兜底密钥，生产环境务必在 .env 中配置 ADMIN_JWT_SECRET
-  console.warn('[adminAuth] 未配置 ADMIN_JWT_SECRET 环境变量，当前使用开发兜底密钥，仅限本地调试');
+  // 密钥缺失时直接终止启动：避免无感知降级到公开兜底密钥导致后台被伪造 token 访问
+  throw new Error('[adminAuth] 缺少环境变量 ADMIN_JWT_SECRET，请在 .env 中配置后重启服务');
 }
 
-const SECRET = ADMIN_JWT_SECRET || 'buy_agent_admin_dev_secret';
+const SECRET = ADMIN_JWT_SECRET;
 
 function adminAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';

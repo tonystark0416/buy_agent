@@ -32,7 +32,6 @@ exports.getWaimaiGoodsDetail = async (req, res, next) => {
 //通过商品id获取链接接口
 exports.getReferralLinkByGoodsId = async (req, res, next) => {
     const  {productViewSign} = req.query;
-    console.log( {productViewSign});
     try {
         const result = await meituanService.getReferralLink({productViewSign});
         res.json({ success: true, data: result }); //返回数据给前端

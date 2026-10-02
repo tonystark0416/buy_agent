@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.4.1
-- 更新日期：2026-10-01
+- 文档版本：v1.5
+- 更新日期：2026-10-03
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -159,7 +159,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 **数据表**：`adp_order`（order_sn、uid、goods_id、goods_name、goods_img_url、status、platform、order_amount、commission、create_time、update_time）。
 
 **同步任务（job/）**：
-- `vipOrderSync.js`：唯品会订单拉取。核心逻辑为"按小时区间分片拉取 + 分页 + 去重 + 存在即更新/不存在即插入"；cron 定时调度代码已写好但**当前被注释**，脚本以一次性日期范围补拉方式运行（脚本末尾 IIFE 补拉区间已于 2026-09-29 调整为 `2026-09-15 ~ 2026-09-19`）；
+- `vipOrderSync.js`：唯品会订单拉取。核心逻辑为"按小时区间分片拉取 + 分页 + 去重 + 存在即更新/不存在即插入"；cron 定时调度代码已写好但**当前被注释**，脚本以一次性日期范围补拉方式运行（脚本末尾 IIFE 补拉区间当前为 `2026-09-26 ~ 2026-09-30`，随提交 `2aecaf8` 更新）；
 - `meituanOrderSync.js`：美团订单拉取，逻辑同上（订单 uid 取美团侧 sid，时间为秒级时间戳换算北京时间）；脚本末尾 IIFE 仍写死补拉区间 `2026-09-01 ~ 2026-09-12`，截至 2026-09-29 未调整。
 
 ### 3.10 本地生活（美团）模块（/api/meituan）
@@ -278,6 +278,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
 | P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
 | P3-3 | 低 | `meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]` 发给美团接口（首页 Tab2 调用即触发）；建议改为 `xxx ? [xxx] : []` 兜底（console.log 已于 2026-10-02 关闭） | `services/platforms/meituanService.js`（2026-10-01 新增） |
+| P2-6 | 中 | ~~前端 401 跳转硬编码 `location.href='/login'`，部署在 `/admin/` 子路径下 token 过期后会 404~~（2026-10-03 已修复：改为 `import.meta.env.BASE_URL + 'login'` 拼接） | `admin-web/src/api/request.js` |
+| P3-4 | 低 | ~~前端三处健壮性问题：`admin_info` 仅登录时写入缓存（后台改角色后前端 readonly 判断失真）、`JSON.parse(localStorage)` 无兜底可能白屏、`getProfile` 接口未被调用~~（2026-10-03 已修复：AdminLayout 挂载时调用 getProfile 刷新缓存、JSON.parse 加 try/catch） | `admin-web/src/layout/AdminLayout.vue`、`admin-web/src/views/goods/GoodsList.vue` |
+| P3-5 | 低 | ~~`ADMIN_JWT_SECRET` 未配置时静默降级为开发兜底密钥~~（2026-10-03 已修复：缺失时启动即抛错，需在 .env 配置后才能启动服务）；~~美团 controller 残留 console.log~~（已删除） | `middleware/adminAuth.js`、`controllers/life/adpMeituanController.js` |
 
 ---
 
@@ -303,6 +306,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-10-03 | v1.5 | 一致性审查（代码 `cb07b10`）+ 修复落地：① 3.9 vip 补拉区间更正为 `2026-09-26 ~ 2026-09-30`（此前文档漏同步 `2aecaf8`）；② 修复 P2-6 前端 401 跳转子路径 404（BASE_URL 拼接）；③ 修复 P3-4（AdminLayout 挂载时 getProfile 刷新 admin_info 缓存、JSON.parse 兜底）；④ 修复 P3-5（ADMIN_JWT_SECRET 缺失启动即报错、删除美团 controller 残留 console.log）。注意：`ADMIN_JWT_SECRET` fail-fast 后，未配置 .env 的环境将无法启动服务 | — |
 | 2026-10-01 | v1.4.1 | 美团模块接口变更同步文档：① 3.10 `/api/meituan/goods` 标注完整参数透传（含 vpSkuViewIds），新增 `/api/meituan/goodsDetail` 单品接口；② 4 平台现状更新美团能力清单；③ 3.11 标注 `/chat` 路由已注释下线；④ 3.12 部署方式更新为 Express 托管 `/admin` + 宝塔 Node项目方案；⑤ 新增问题 P3-3（meituanService `[null]` 兜底缺失与 console.log 打开） | `aea4466`（美团接口）、`44b1298`（/chat 下线）、`6eb069f`（/admin 托管） |
 | 2026-10-01 | v1.4 | 后台新增商品管理（adp_goods 运营选品 CRUD）：① 4 个接口 `goods/list/create/update/delete`，字段校验（platform 白名单、goods_platform_id 必填、价格非负、URL 格式）；② 首个写操作模块，`adminWriteAuth` 拦截 readonly 角色（403）；③ 前端商品管理页面（筛选/表格/新增编辑弹窗/删除二次确认，提示数据实时同步 C 端首页 Tab3）；④ 物理删除、不加排序列、商品图为 URL 粘贴（经用户确认）；⑤ `adpGoodsModel`（C 端）与表结构均未改动 | — |
 | 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | `8b7e0b7`（另 `6eb069f` 为 Express 托管 `/admin` 静态路径的部署改动） |

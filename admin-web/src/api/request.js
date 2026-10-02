@@ -32,9 +32,10 @@ request.interceptors.response.use(
       localStorage.removeItem('admin_token')
       localStorage.removeItem('admin_info')
       ElMessage.error('登录已过期，请重新登录')
-      // 避免在登录页循环跳转
-      if (!location.pathname.startsWith('/login')) {
-        location.href = '/login'
+      // 避免在登录页循环跳转；基于 BASE_URL 拼接，兼容 /admin/ 子路径部署
+      const loginPath = `${import.meta.env.BASE_URL}login`
+      if (!location.pathname.endsWith('/login')) {
+        location.href = loginPath
       }
     } else {
       ElMessage.error(msg || error.message || '网络错误')
