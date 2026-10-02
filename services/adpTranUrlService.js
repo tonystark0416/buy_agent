@@ -6,6 +6,7 @@
 //引入service
 const pddService = require('./platforms/pddService.js');
 const vipService = require('./platforms/vipService.js');
+const adpThirdAuthService = require('../services/adpThirdAuthService.js');
 
 
 //综合转链服务，入参用户id、推广位id，原始url，获取转换后的链接
@@ -15,6 +16,8 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
     if (!uid || !pid) {
         throw new Error('uid、pid不能为空');
     }
+
+
 
     //定义返回格式
     let resultData = {
@@ -69,11 +72,27 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
     }
 
     if (source_url.toLowerCase().includes('vip.com')) {
+        const isAuth = await adpThirdAuthService.checkAuth({ uid, pid, platform: 'vip' })
+        if (isAuth.isAuth === false) {
+            return {
+                code: -1,
+                needAuthPlatform: 'vip',
+                 message: '用户未授权'
+            }
+        }
         return await vipTranUrl({ uid, pid, source_url, targetType, targetValueList })
     }
+    
+    //上述都不命中
     return { code: -2, message: '不支持的第三方平台链接' };
 
 }
+
+
+
+
+
+
 
 
 //===================================通过商品id获取推广链接===========================================
@@ -95,8 +114,8 @@ async function tranUrlByGoodsId({ platform, goodsId, uid, pid }) {
             urls: {
                 h5_url: item.url || '', //h5链接
                 weapp_url: item.vipWxUrl || '', //小程序链接路径
-                weapp_source_id:'gh_8ed2afad9972',
-                weapp_app_id:'wxe9714e742209d35f',
+                weapp_source_id: 'gh_8ed2afad9972',
+                weapp_app_id: 'wxe9714e742209d35f',
                 deeplink_url: item.deeplinkUrl || '', //app唤起链接
                 command: item.onlyCommand || '' //唯品会专属口令
             }
@@ -121,7 +140,7 @@ async function tranUrlByGoodsId({ platform, goodsId, uid, pid }) {
 
 
     //参数判断
-    if (!platform || !goodsId || !uid ) {
+    if (!platform || !goodsId || !uid) {
         throw new Error('platform和goodsId不能为空');
     }
 

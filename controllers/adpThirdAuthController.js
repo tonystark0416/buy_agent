@@ -32,3 +32,12 @@ exports.checkAuth = async function(req, res) {
   }     
 }
 
+exports.unbindThirdAuth = async function(req, res) {
+  try {
+    const { uid, platform } = req.query;
+    const unbindResult = await thirdAuthService.unbindThirdAuth({ uid, platform });
+    res.json({ result: true, unbindResult });
+  } catch (error) {
+    res.status(500).json({ result: false, message: error.message });
+  }
+}

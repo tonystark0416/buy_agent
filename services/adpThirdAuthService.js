@@ -94,7 +94,27 @@ async function checkAuth({ uid, pid, platform }) {
   }
 }
 
+
+/**
+ * 解绑第三方平台授权
+ * @param {} platform  平替啊
+ * @param {*} uid 
+ * @returns 
+ */
+async function unbindThirdAuth({ uid, platform }) {
+  if(platform !== 'vip'){
+    return {result: false, message: '不支持的平台'}
+  }
+  if (platform === 'vip') {
+    const unbindResult = vip.unbindOpenId(uid)
+    return unbindResult
+  }
+}
+
+
+
 module.exports = {
   genAuthUrl,
-  checkAuth
+  checkAuth,
+  unbindThirdAuth
 }

@@ -9,6 +9,7 @@
 
 const adpTranUrlService = require('../services/adpTranUrlService.js');
 
+
 /**
  * 转换第三方平台链接
  * @param {*} req
