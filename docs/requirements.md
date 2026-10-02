@@ -2,7 +2,7 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.5
+- 文档版本：v1.6
 - 更新日期：2026-10-03
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
@@ -93,6 +93,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|
 | `/api/thirdAuth/genAuthUrl` | GET | 生成授权链接（支持 pdd / vip），返回 h5_url、weapp_url、deeplink_url |
 | `/api/thirdAuth/checkAuth` | GET | 检查授权状态，返回 `{ isAuth: true/false }` |
+| `/api/thirdAuth/unbind` | GET | 解绑第三方授权（2026-10-03 新增）：仅支持 vip，调 `vipService.unbindOpenId(uid)`，非 vip 平台返回"不支持的平台" |
 
 ### 3.3 聚合搜索模块（/api/search）
 
@@ -118,7 +119,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | API | 方法 | 说明 |
 |---|---|---|
-| `/api/tranUrl` | GET | 按原始 URL 转链：自动识别链接中的 `pinduoduo` / `vip.com` 域名分发（pdd 转链当前被注释禁用，仅 vip 可用）；返回 h5_url、weapp_url、weapp_short_link、deeplink_url |
+| `/api/tranUrl` | GET | 按原始 URL 转链：自动识别链接中的 `pinduoduo` / `vip.com` 域名分发（pdd 转链当前被注释禁用，仅 vip 可用）；返回 h5_url、weapp_url、weapp_short_link、deeplink_url。**vip.com 链接转链前先校验授权状态**（2026-10-03 新增），未授权返回 `{ code: -1, needAuthPlatform: 'vip', message: '用户未授权' }`，前端可据此引导授权 |
 | `/api/tranUrl/genUrlByGoodsId` | GET | 按商品 ID 转链：支持 vip / pdd；返回 goodsId + urls{ h5_url, weapp_url, weapp_source_id, weapp_app_id, deeplink_url, command }。pdd 走 `pdd.ddk.goods.promotion.url.generate`，vip 走 genByGoodsId |
 
 **注意（2026-09-20）**：按商品 ID 转链的 pdd 分支中 `pid` 写死为 `43384525_317172887`，vip 分支的小程序 `weapp_source_id`（gh_8ed2afad9972）/`weapp_app_id`（wxe9714e742209d35f）写死在代码中，见问题清单 P2-5。
@@ -306,7 +307,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
-| 2026-10-03 | v1.5 | 一致性审查（代码 `cb07b10`）+ 修复落地：① 3.9 vip 补拉区间更正为 `2026-09-26 ~ 2026-09-30`（此前文档漏同步 `2aecaf8`）；② 修复 P2-6 前端 401 跳转子路径 404（BASE_URL 拼接）；③ 修复 P3-4（AdminLayout 挂载时 getProfile 刷新 admin_info 缓存、JSON.parse 兜底）；④ 修复 P3-5（ADMIN_JWT_SECRET 缺失启动即报错、删除美团 controller 残留 console.log）。注意：`ADMIN_JWT_SECRET` fail-fast 后，未配置 .env 的环境将无法启动服务 | — |
+| 2026-10-03 | v1.6 | ① 3.2 新增解绑授权接口 `GET /api/thirdAuth/unbind`（仅 vip，调 unbindOpenId）；② 3.5 `/api/tranUrl` vip.com 链接转链前增加授权预检，未授权返回 `needAuthPlatform: 'vip'` 供前端引导授权 | `ba28b81` |
+| 2026-10-03 | v1.5 | 一致性审查（代码 `cb07b10`）+ 修复落地：① 3.9 vip 补拉区间更正为 `2026-09-26 ~ 2026-09-30`（此前文档漏同步 `2aecaf8`）；② 修复 P2-6 前端 401 跳转子路径 404（BASE_URL 拼接）；③ 修复 P3-4（AdminLayout 挂载时 getProfile 刷新 admin_info 缓存、JSON.parse 兜底）；④ 修复 P3-5（ADMIN_JWT_SECRET 缺失启动即报错、删除美团 controller 残留 console.log）。注意：`ADMIN_JWT_SECRET` fail-fast 后，未配置 .env 的环境将无法启动服务 | `1f1bc4d` |
 | 2026-10-01 | v1.4.1 | 美团模块接口变更同步文档：① 3.10 `/api/meituan/goods` 标注完整参数透传（含 vpSkuViewIds），新增 `/api/meituan/goodsDetail` 单品接口；② 4 平台现状更新美团能力清单；③ 3.11 标注 `/chat` 路由已注释下线；④ 3.12 部署方式更新为 Express 托管 `/admin` + 宝塔 Node项目方案；⑤ 新增问题 P3-3（meituanService `[null]` 兜底缺失与 console.log 打开） | `aea4466`（美团接口）、`44b1298`（/chat 下线）、`6eb069f`（/admin 托管） |
 | 2026-10-01 | v1.4 | 后台新增商品管理（adp_goods 运营选品 CRUD）：① 4 个接口 `goods/list/create/update/delete`，字段校验（platform 白名单、goods_platform_id 必填、价格非负、URL 格式）；② 首个写操作模块，`adminWriteAuth` 拦截 readonly 角色（403）；③ 前端商品管理页面（筛选/表格/新增编辑弹窗/删除二次确认，提示数据实时同步 C 端首页 Tab3）；④ 物理删除、不加排序列、商品图为 URL 粘贴（经用户确认）；⑤ `adpGoodsModel`（C 端）与表结构均未改动 | — |
 | 2026-09-30 | v1.3 | 新增后台管理模块（3.12）：① 后端 `/api/admin` 路由组（登录/鉴权/订单/用户查询），独立 JWT 密钥 `ADMIN_JWT_SECRET`，统一响应 `{code,msg,data}`，控制器自行结构化错误处理；② 新增 `adp_admin_user` 表与种子账号（`sql/admin.sql`，已在开发库执行）；③ 前端 `admin-web/` 同仓子工程（Vue3 + Vite + Element Plus）：登录页、订单管理、用户管理；④ 目录结构/环境变量/数据库章节同步更新；⑤ `app.js` 仅新增 2 行挂载，未改动既有业务代码；⑥ Backlog 新增 B-11 并标记完成，B-10 标注后台已落地统一响应 | `8b7e0b7`（另 `6eb069f` 为 Express 托管 `/admin` 静态路径的部署改动） |
