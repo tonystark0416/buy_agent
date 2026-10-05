@@ -19,7 +19,14 @@ exports.tranUrl = async function (req, res) {
   try {
     const { uid, pid, source_url, targetType, targetValueList } = req.query;
     const resultUrl = await adpTranUrlService.tranUrl({ uid, pid, source_url, targetType, targetValueList });
-    res.json({ result: true,...resultUrl });
+    if (resultUrl.needAuthPlatform) {
+      res.json({ code: -1, ...resultUrl });
+    } else if (resultUrl.message === 'noSuportPlatform') {
+      res.json({ code: -2, message: '不支持的平台' });
+    } else {
+      res.json({ code: 200, ...resultUrl });
+    }
+
   } catch (error) {
     res.status(500).json({ result: false, message: error.message });
   }

@@ -13,15 +13,12 @@ const adpThirdAuthService = require('../services/adpThirdAuthService.js');
 async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
     console.log('调用转链服务，参数：', { uid, pid, source_url, targetType, targetValueList });
     //判断参数，全部必传
-    if (!uid || !pid) {
-        throw new Error('uid、pid不能为空');
+    if (!uid || !source_url) {
+        throw new Error('uid、source_url不能为空');
     }
-
-
 
     //定义返回格式
     let resultData = {
-        code: '',
         urls: {
             h5_url: '', //H5链接
             weapp_url: '', //小程序链接
@@ -30,17 +27,21 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
         }
     }
 
-    //拼多多链接转换
-    // async function pddTranUrl({ uid: uid, pid: pid, source_url: source_url }) {
-    //     console.log(123)
-    //     const result = await pdd.urlGen({ uid: uid, pid: pid, source_url: source_url });
-    //     if (result.goods_zs_unit_generate_response) {
-    //         resultData.code = 200;
-    //         resultData.urls.h5_url = result.goods_zs_unit_generate_response.short_url;
-    //         resultData.urls.weapp_url = result.goods_zs_unit_generate_response.weixin_long_link;
-    //         return resultData
-    //     }
-    // }
+    //拼多多链接转换，pid写死默认值
+    async function pddTranUrl({ uid, pid, source_url }) {
+
+        const result = await pddService.urlGen({ uid, pid: pid = '43384525_317172887', source_url });  //写死pid
+
+        if (result.error_response) {    //判断错误
+            return result;
+        }
+
+        if (result.goods_zs_unit_generate_response) {
+            resultData.urls.h5_url = result.goods_zs_unit_generate_response.short_url;
+            resultData.urls.weapp_url = result.goods_zs_unit_generate_response.weixin_long_link;
+            return resultData
+        }
+    }
 
 
     //唯品会链接转换,返回的urlInfoList是个数组，里面有多个url对象，取第一个即可
@@ -48,7 +49,7 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
         const result = await vipService.genByVIPUrl({
             urlList: [source_url],
             openId: uid,
-            chanTag: pid,
+            chanTag: pid='default_chanTag', //写死pid
             statParam: 'defaultStatParam',
             targetType: targetType,
             targetValueList: targetValueList
@@ -66,25 +67,26 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
         }
     }
 
+
     //判断平台,分别调用各自的转链
     if (source_url.toLowerCase().includes('pinduoduo')) {
-        return await pddTranUrl({ uid: uid, pid: pid, source_url: source_url })
+        const isAuth = await adpThirdAuthService.checkAuth({ uid, pid, platform: 'pdd' })
+        if (isAuth.isAuth === false) {
+            return { needAuthPlatform: 'pdd', message: '用户未授权' }
+        }
+        return await pddTranUrl({ uid, pid, source_url })
     }
 
     if (source_url.toLowerCase().includes('vip.com')) {
         const isAuth = await adpThirdAuthService.checkAuth({ uid, pid, platform: 'vip' })
         if (isAuth.isAuth === false) {
-            return {
-                code: -1,
-                needAuthPlatform: 'vip',
-                 message: '用户未授权'
-            }
+            return { needAuthPlatform: 'vip', message: '用户未授权' }
         }
         return await vipTranUrl({ uid, pid, source_url, targetType, targetValueList })
     }
-    
+
     //上述都不命中
-    return { code: -2, message: '不支持的第三方平台链接' };
+    return { message: 'noSuportPlatform' };
 
 }
 
