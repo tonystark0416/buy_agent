@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.6
-- 更新日期：2026-10-03
+- 文档版本：v1.7
+- 更新日期：2026-10-05
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
 
@@ -119,7 +119,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | API | 方法 | 说明 |
 |---|---|---|
-| `/api/tranUrl` | GET | 按原始 URL 转链：自动识别链接中的 `pinduoduo` / `vip.com` 域名分发（pdd 转链当前被注释禁用，仅 vip 可用）；返回 h5_url、weapp_url、weapp_short_link、deeplink_url。**vip.com 链接转链前先校验授权状态**（2026-10-03 新增），未授权返回 `{ code: -1, needAuthPlatform: 'vip', message: '用户未授权' }`，前端可据此引导授权 |
+| `/api/tranUrl` | GET | 按原始 URL 转链：自动识别链接中的 `pinduoduo` / `vip.com` 域名分发，vip / pdd 均可用（pdd 分支 2026-10-05 恢复）；**两平台转链前均先校验授权状态**，未授权返回 `{ code: -1, needAuthPlatform: 'pdd'/'vip', message: '用户未授权' }`；响应码统一：`code: 200` 成功 / `-1` 未授权 / `-2` 不支持平台；必传参数为 `uid + source_url`（pid 不再必传，pdd `pid` 与 vip `chanTag` 缺省用代码内默认值，见 P2-5） |
 | `/api/tranUrl/genUrlByGoodsId` | GET | 按商品 ID 转链：支持 vip / pdd；返回 goodsId + urls{ h5_url, weapp_url, weapp_source_id, weapp_app_id, deeplink_url, command }。pdd 走 `pdd.ddk.goods.promotion.url.generate`，vip 走 genByGoodsId |
 
 **注意（2026-09-20）**：按商品 ID 转链的 pdd 分支中 `pid` 写死为 `43384525_317172887`，vip 分支的小程序 `weapp_source_id`（gh_8ed2afad9972）/`weapp_app_id`（wxe9714e742209d35f）写死在代码中，见问题清单 P2-5。
@@ -271,11 +271,11 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner/adp_goods）不一致，且 `adp_user / adp_order / adp_banner / adp_goods` 四张业务表均缺正式 DDL，新环境无法一键建库 | `sql/init.sql` |
 | P1-2 | 高 | **敏感信息硬编码**：~~DeepSeek API Key 明文写死~~（2026-09-20 已从代码清除，但历史提交中仍存在，建议作废该 Key；当前代码中为空字符串，AI 对话功能不可用，需改走 .env 环境变量）；JWT 密钥仍写死（`19910416`）、DB 密码有默认明文兜底 | `services/aiService.js`、`services/adpUserService.js`、`config/config.js` |
 | P1-3 | 高 | 订单同步任务写死补拉日期（2026-09-01 ~ 2026-09-12）且以立即执行 IIFE 方式运行，cron 调度被注释；`node server` 时任务不会自动执行，也未纳入统一调度 | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
-| P2-1 | 中 | `adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛 `pddTranUrl is not defined` 运行时错误 | `services/adpTranUrlService.js` |
+| P2-1 | 中 | ~~`adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛运行时错误~~（2026-10-05 已修复：pdd 按链接转链恢复实现，含 error_response 错误处理） | `services/adpTranUrlService.js` |
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
 | P2-3 | 中 | `updateUserInfo` 将 openid 直接覆盖到已有用户，可能与"openid 一对一绑定"规则冲突（A 用户手机号登录会顶掉原绑定关系） | `models/adpUser.js` / `adpUserService.register` |
 | P2-4 | 中 | aiService 工具调用参数 openid/chanTag 写死占位值，未接真实用户上下文；模型名 `deepseek-v4-pro` 与密钥需核实 | `services/aiService.js` |
-| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；pdd 授权链接生成/检查的 `pid` 同样写死（2026-09-20）；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死，应迁入配置 | `services/adpTranUrlService.js`、`services/adpThirdAuthService.js` |
+| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；pdd 授权链接生成/检查的 `pid` 同样写死（2026-09-20）；`/api/tranUrl` 按链接转链中 pdd `pid` 与 vip `chanTag` 亦写死默认值（2026-10-05）；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死，应迁入配置 | `services/adpTranUrlService.js`、`services/adpThirdAuthService.js` |
 | P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
 | P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
 | P3-3 | 低 | `meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]` 发给美团接口（首页 Tab2 调用即触发）；建议改为 `xxx ? [xxx] : []` 兜底（console.log 已于 2026-10-02 关闭） | `services/platforms/meituanService.js`（2026-10-01 新增） |
@@ -296,7 +296,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | 待排期 |
 | B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / verification_codes 正式 DDL 并与代码对齐 | 高 | 待排期 |
 | B-7 | AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化 | 中 | 待排期 |
-| B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（2026-09-20 已完成"按商品 ID"的 pdd 转链；"按 URL"的 pdd 分支仍被注释，淘宝识别未做） |
+| B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（pdd"按商品 ID"与"按 URL"转链均已恢复，双平台授权预检已上线（2026-10-05）；仅剩淘宝链接识别未做） |
 | B-9 | 验证码登录流程（表已建，短信通道未接） | 低 | 待排期 |
 | B-10 | 工程化：统一响应格式、日志库替换 console.log、ESLint、单测 | 低 | 待排期（后台模块已率先落地统一响应 `{code,msg,data}`） |
 | B-11 | 后台管理系统：登录鉴权 + 订单/用户查询（/api/admin + admin-web 前端） | 高 | ✅ 已完成（2026-09-30，见 3.12；后续可扩展：Dashboard 统计、Banner/选品管理、管理员账号管理） |
@@ -307,6 +307,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-10-05 | v1.7 | ① 3.5 `/api/tranUrl` 恢复 pdd 按链接转链（解决 P2-1），pdd 转链前同样增加授权预检；② 响应码统一 `200/-1/-2`；③ 必传参数改为 `uid + source_url`；④ P2-5 补充按链接转链的默认 pid/chanTag；⑤ B-8 状态更新（仅剩淘宝识别） | `f142245` |
 | 2026-10-03 | v1.6 | ① 3.2 新增解绑授权接口 `GET /api/thirdAuth/unbind`（仅 vip，调 unbindOpenId）；② 3.5 `/api/tranUrl` vip.com 链接转链前增加授权预检，未授权返回 `needAuthPlatform: 'vip'` 供前端引导授权 | `ba28b81` |
 | 2026-10-03 | v1.5 | 一致性审查（代码 `cb07b10`）+ 修复落地：① 3.9 vip 补拉区间更正为 `2026-09-26 ~ 2026-09-30`（此前文档漏同步 `2aecaf8`）；② 修复 P2-6 前端 401 跳转子路径 404（BASE_URL 拼接）；③ 修复 P3-4（AdminLayout 挂载时 getProfile 刷新 admin_info 缓存、JSON.parse 兜底）；④ 修复 P3-5（ADMIN_JWT_SECRET 缺失启动即报错、删除美团 controller 残留 console.log）。注意：`ADMIN_JWT_SECRET` fail-fast 后，未配置 .env 的环境将无法启动服务 | `1f1bc4d` |
 | 2026-10-01 | v1.4.1 | 美团模块接口变更同步文档：① 3.10 `/api/meituan/goods` 标注完整参数透传（含 vpSkuViewIds），新增 `/api/meituan/goodsDetail` 单品接口；② 4 平台现状更新美团能力清单；③ 3.11 标注 `/chat` 路由已注释下线；④ 3.12 部署方式更新为 Express 托管 `/admin` + 宝塔 Node项目方案；⑤ 新增问题 P3-3（meituanService `[null]` 兜底缺失与 console.log 打开） | `aea4466`（美团接口）、`44b1298`（/chat 下线）、`6eb069f`（/admin 托管） |
