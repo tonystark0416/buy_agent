@@ -478,8 +478,6 @@ async function genAuthUrl(uid, platform) {
 
 // ==================== 链接转换 ====================
 
-const TRAN_URL_PID = '43384525_317172887';
-
 // 唯品会商品推广位 ID（genUrlByGoodsId 默认使用）
 const GOODS_GEN_URL_PID = '123213';
 
@@ -501,15 +499,15 @@ function detectPlatform(url) {
 /**
  * 链接转换：将电商商品链接转为 CPS 推广链接
  *
- * 接口: GET {BASE_URL}/api/tranUrl
+ * 接口: GET {BASE_URL}/api/tranUrl（pid 不下发，由后端处理）
  * 参数:
  *   - uid        {string} 当前用户 uid
- *   - pid        {string} 推广位ID，固定 43384525_317172887
  *   - source_url {string} 用户输入的原始链接
  *
- * 成功返回: { code: 200, urls: { h5_url, weapp_url, weapp_short_link, deeplink_url } }
- * 失败返回: { code: -1, urls: { ... 全空 } }
- * 不支持:   { code: -2, urls: { ... 全空 } }
+ * 返回状态（按 code 判断）:
+ *   成功:   { code: 200, urls: { h5_url, weapp_url, weapp_short_link, deeplink_url } }
+ *   未授权: { code: -1, needAuthPlatform: 'vip'|'pdd', message } —— 由页面弹对应平台授权提示窗
+ *   不支持: { code: -2, message: '不支持的平台' }
  *
  * @param {string} url - 原始电商链接
  * @param {string} uid - 当前用户 uid
@@ -528,7 +526,6 @@ async function convertLink(url, uid) {
   try {
     const query = [
       `uid=${encodeURIComponent(uid)}`,
-      `pid=${encodeURIComponent(TRAN_URL_PID)}`,
       `source_url=${encodeURIComponent(url.trim())}`,
     ].join('&');
 
@@ -553,6 +550,8 @@ async function convertLink(url, uid) {
         code: 0,
         data: {
           originalUrl: url.trim(),
+          // 平台标识（前端 detectPlatform 识别），供页面跳转小程序时兜底 appId
+          platform: detectPlatform(url),
           h5_url: result.urls.h5_url,
           weapp_url: result.urls.weapp_url || '',
           weapp_short_link: result.urls.weapp_short_link || '',
@@ -561,19 +560,19 @@ async function convertLink(url, uid) {
       };
     }
 
-    // 平台不支持
-    if (resCode === -2) {
-      return { code: -2, message: '暂不支持该平台的链接' };
-    }
-
-    // 用户未授权该链接对应平台：接口返回 { result: true, code: -1, needAuthPlatform: 'vip'|'pdd', message }
+    // 用户未授权该链接对应平台：接口返回 { code: -1, needAuthPlatform: 'vip'|'pdd', message }
     // 透传给页面层，由页面弹对应平台的授权提示窗引导用户去授权
-    if (result.needAuthPlatform) {
+    if (resCode === -1 && result.needAuthPlatform) {
       return {
         code: -1,
         needAuthPlatform: result.needAuthPlatform,
         message: result.message || '用户未授权',
       };
+    }
+
+    // 不支持的平台链接
+    if (resCode === -2) {
+      return { code: -2, message: result.message || '暂不支持该平台的链接' };
     }
 
     // 转换失败

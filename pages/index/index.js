@@ -634,6 +634,7 @@ Component({
           showLinkResult: true,
           linkResult: {
             originalUrl: data.originalUrl || linkInput.trim(),
+            platform: data.platform || '',
             h5_url: data.h5_url || '',
             weapp_url: data.weapp_url || '',
             weapp_short_link: data.weapp_short_link || '',
@@ -666,6 +667,72 @@ Component({
           wx.showToast({ title: '复制失败', icon: 'none' });
         },
       });
+    },
+
+    /**
+     * 转链结果跳转对应平台小程序（weapp_url 有值时按钮可见）
+     * weapp_url 两种格式：
+     *   1. 小程序长链（pdd 返回）：weixin://dl/business/?appid=xxx&path=页面路径&query=编码后的参数
+     *   2. 普通小程序路径（vip 返回）：直接是 pages/xxx?xxx 形式，appId 按平台兜底
+     */
+    onJumpWeapp() {
+      const { linkResult } = this.data;
+      if (!linkResult || !linkResult.weapp_url) {
+        wx.showToast({ title: '暂无小程序链接', icon: 'none' });
+        return;
+      }
+
+      const target = this.parseWeappUrl(linkResult.weapp_url, linkResult.platform);
+      if (!target.appId || !target.path) {
+        wx.showToast({ title: '小程序链接解析失败', icon: 'none' });
+        return;
+      }
+
+      console.log('[Index] 转链结果跳转小程序, appId:', target.appId, '路径:', target.path);
+      wx.navigateToMiniProgram({
+        appId: target.appId,
+        path: target.path,
+        fail: (err) => {
+          console.error('[Index] 转链结果跳转小程序失败:', err);
+          wx.showToast({ title: '跳转失败，请重试', icon: 'none' });
+        },
+      });
+    },
+
+    /**
+     * 解析转链返回的 weapp_url 为 { appId, path }
+     * @param {string} weappUrl - weapp_url 原始值
+     * @param {string} platform - 链接平台（vip / pdd），普通路径格式时用于兜底 appId
+     */
+    parseWeappUrl(weappUrl, platform) {
+      const url = (weappUrl || '').trim();
+      if (!url) return {};
+
+      // 格式 1：小程序长链 weixin://dl/business/?appid=xxx&path=xxx&query=xxx
+      if (url.indexOf('weixin://dl/business/') === 0) {
+        const qs = url.split('?')[1] || '';
+        const params = {};
+        qs.split('&').forEach((pair) => {
+          const idx = pair.indexOf('=');
+          if (idx > 0) params[pair.slice(0, idx)] = pair.slice(idx + 1);
+        });
+
+        let pagePath = params.path || '';
+        if (params.query) {
+          // query 是 URL 编码后的完整参数串，解码后拼到 path 后
+          try {
+            pagePath += '?' + decodeURIComponent(params.query);
+          } catch (e) {
+            pagePath += '?' + params.query;
+          }
+        }
+        return { appId: params.appid || '', path: pagePath };
+      }
+
+      // 格式 2：普通小程序路径，appId 按平台兜底
+      if (platform === 'vip') return { appId: VIP_APP_ID, path: url };
+      if (platform === 'pdd') return { appId: PDD_APP_ID, path: url };
+      return {};
     },
 
     /**

@@ -102,7 +102,7 @@ huigenghao/
 - 搜索入口：点击置顶搜索框（静态占位文案「搜索全网好物」，非 input placeholder）跳转商品搜索页（`goToSearch`）
 - 转链按钮文案「查找专属优惠」（转换中显示「正在转换...」），样式为主色渐变胶囊（`linear-gradient(135deg, #ff4d00, #ff9402)` + 白字）；下方「粘贴购物链接」区块收窄为主色系圆角留白卡片
 - **精选好物（唯品好货 / 美团热销 / 多多好货三 tab）**：精选好物区改为三个 tab——「唯品好货」调用 `GET {BASE_URL}/api/indexList?tab=1&uid=xxx&offset=0&pageSize=10`，携带 `offset/nextPageOffset` 触底翻页加载唯品会推荐，双列瀑布流展示（券后价 + 删除线原价），点击卡片跳商品详情页；「美团热销」调用 `GET {BASE_URL}/api/indexList?tab=2&longitude=..&latitude=..`，携带首页模糊定位经纬度加载附近美团热销团购（接口一次返回暂不分页），卡片展示主图/标题/门店·品牌/券后价/原价，点击卡片进入美团团购商品详情页 `/pages/meituan-goods`（转链购买在详情页「前往购买」进行，见 [3.8](#38-美团团购商品详情页-pagesmeituan-goods-)）；第三个 tab「多多好货」调用 `GET {BASE_URL}/api/indexList?tab=3`（一次返回暂不分页，返回结构与 tab=1/2 不同，为顶层数组 `[{ id, goods_name, goods_image_url, market_price, sale_price, platform:'pdd', goods_platform_id, update_time, create_time }]`），双列瀑布流展示（券后价 `sale_price` + 删除线原价 `market_price`），点击卡片不进商品详情，依次校验：未登录先弹手机号登录 → 已登录则调 `GET /api/thirdAuth/checkAuth?uid=xxx&platform=pdd`（`pid` 不下发由后端处理）校验拼多多授权，未授权弹「去授权」提示窗，确认后调 `GET /api/thirdAuth/genAuthUrl?uid=xxx&platform=pdd` 取 `weapp_url`（appId 兜底 `wxa918198f16869201`）跳拼多多小程序授权页；已授权则调 `GET {BASE_URL}/api/tranUrl/genUrlByGoodsId?platform=pdd&goodsId=xxx&uid=xxx`（`goodsId` 取商品 `goods_platform_id`，`pid` 不下发由后端处理），成功后取 `urls.weapp_url`（小程序路径）与 `urls.weapp_app_id`（缺失兜底拼多多 appId `wxa918198f16869201`）跳拼多多小程序；三 tab 数据源为同一聚合接口 `/api/indexList`（Host 统一取自 `utils/config.js` 的 `BASE_URL`，不再硬编码联调地址）；平台筛选参数（`jxCode` / `platform` / `listTopiId`）已下沉到后端按 `tab` 判断，前端不再下发；唯品好货（tab=1）额外携带当前用户 `uid`（取自 `USER_CONFIG.uid`，未登录为空时不下发该参数）；首次进入页面默认加载唯品好货，切换美团热销/多多好货时首次才发起请求；手机号登录成功后会携带新 `uid` 重新拉取一次唯品好货列表
-- **链接转换**：支持粘贴拼多多和唯品会商品链接，调 `GET /api/tranUrl` 获取推广链接；结果卡片**当前只展示 `h5_url`（H5 推广链接）**，小程序路径 / App 唤起链接暂不展示（`linkResult` 仍保留字段备用）；输入框占位文案「支持粘贴唯品会/拼多多 商品链接查找优惠」，输入区为压缩高度圆角灰底卡片，右下角「粘贴」按钮加宽（`min-width: 172rpx`）便于点击
+- **链接转换**：支持粘贴拼多多和唯品会商品链接，调 `GET /api/tranUrl` 获取推广链接；结果卡片展示原始链接与 `h5_url`（H5 推广链接）；**当 `weapp_url` 有值时**，卡片底部主按钮为「前往小程序购买」（`navigateToMiniProgram` 跳对应平台小程序：pdd 的 `weixin://dl/business/` 长链解析出 appid/path/query 跳转，vip 的普通路径按平台兜底唯品会 appId `wxe9714e742209d35f`），次按钮「一键复制推广链接」（描边胶囊，复制 `h5_url`）；`weapp_url` 为空时仅保留「一键复制推广链接」主按钮；输入框占位文案「支持粘贴唯品会/拼多多 商品链接查找优惠」，输入区为压缩高度圆角灰底卡片，右下角「粘贴」按钮加宽（`min-width: 172rpx`）便于点击
 - **分享**：支持右上角转发好友 / 分享到朋友圈（`onShareAppMessage` / `onShareTimeline`，标题「精选好物 · 超值返利」）
 - **今日最优惠活动**：原「电商购物」五个 icon 入口下线，改为首页一行两个活动坑位（外层不展示区块大标题），每张卡片为「左侧商品大图 + 右侧主标题 / 子标题」横向布局，缺图时显示「商品图占位」色块；数据由 `GET {BASE_URL}/api/banner/indexBannerList` 下发（`attached` 调用 `loadActivityBanners()`），按 `sort` 降序取前 **2** 条，不足 2 条或接口异常时整区隐藏（无内置占位数据）
   - 返回契约：`[{ id, type, title, sub_text, banner_img_url, extra_id, extra_url, sort }]`
@@ -499,25 +499,26 @@ setupRequestGuard() → wx.login → 保存 code → GET /api/weixin/openid → 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | uid | string | 是 | 当前用户 uid |
-| pid | string | 是 | 推广位 ID，固定 `43384525_317172887` |
 | source_url | string | 是 | 用户粘贴的原始商品链接（需 URL Encode） |
 
-> 后端自动识别链接所属平台，无需传入 `platform` 参数。
+> 后端自动识别链接所属平台，无需传入 `platform`；`pid` 不下发，由后端处理。
 
 **请求示例**：
 ```
-GET /api/tranUrl?uid=xxx&pid=43384525_317172887&source_url=https%3A%2F%2Fp.pinduoduo.com%2FbpAqG3HP
+GET /api/tranUrl?uid=xxx&source_url=https%3A%2F%2Fp.pinduoduo.com%2FbpAqG3HP
 ```
 
-**响应结构**：
+**响应结构**（按 `code` 判断状态）：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| code | number | 状态码：200=成功，-1=转换失败，-2=平台不支持 |
+| code | number | 状态码：200=成功，-1=用户未授权该平台（带 `needAuthPlatform`），-2=不支持的平台 |
 | urls.h5_url | string | H5 推广链接 |
-| urls.weapp_url | string | 小程序跳转路径 |
+| urls.weapp_url | string | 小程序跳转链接 |
 | urls.weapp_short_link | string | 小程序短链接（可能为空） |
 | urls.deeplink_url | string | App 唤起链接 |
+| needAuthPlatform | string | code=-1 时必带：需要授权的平台标识（`vip` / `pdd`） |
+| message | string | code=-1 / -2 时的提示文案 |
 
 **成功响应示例**：
 ```json
@@ -532,31 +533,9 @@ GET /api/tranUrl?uid=xxx&pid=43384525_317172887&source_url=https%3A%2F%2Fp.pindu
 }
 ```
 
-**转换失败**：
+**用户未授权该链接对应平台**（code=-1）：接口会判断当前用户粘贴链接对应的平台是否已完成第三方授权，未授权时返回：
 ```json
 {
-    "code": -1,
-    "urls": {
-        "h5_url": "",
-        "weapp_url": "",
-        "weapp_short_link": "",
-        "deeplink_url": ""
-    }
-}
-```
-
-**不支持该平台**（如京东、淘宝）：
-```json
-{
-    "code": -2,
-    "urls": { "h5_url": "", "weapp_url": "", "weapp_short_link": "", "deeplink_url": "" }
-}
-```
-
-**用户未授权该链接对应平台**（v0.14.4 新增）：接口会判断当前用户粘贴链接对应的平台是否已完成第三方授权，未授权时返回：
-```json
-{
-    "result": true,
     "code": -1,
     "needAuthPlatform": "vip",
     "message": "用户未授权"
@@ -564,18 +543,27 @@ GET /api/tranUrl?uid=xxx&pid=43384525_317172887&source_url=https%3A%2F%2Fp.pindu
 ```
 - `needAuthPlatform`：需要授权的平台标识（`vip`=唯品会 / `pdd`=拼多多），前端据此弹出对应平台的授权提示窗（同 4.4 的「授权提醒」弹窗）引导用户去授权，授权完成后再重新转链
 
-**前端处理逻辑**（`utils/api.js` `convertLink()`）：
+**不支持该平台**（如京东、淘宝，code=-2）：
+```json
+{
+    "code": -2,
+    "message": "不支持的平台"
+}
+```
+
+**前端处理逻辑**（`utils/api.js` `convertLink()`，按 `code` 判断）：
 1. 校验 `url` 和 `uid` 是否有效
-2. 发起 GET 请求（不传 `platform`，后端自动识别）
-3. 判断 `code === 200` 且 `urls.h5_url` 存在 → 成功
-4. `code === -2` → 提示「暂不支持该平台的链接」
-5. 返回 `needAuthPlatform`（用户未授权该平台）→ 透传 `{ code: -1, needAuthPlatform, message }` 给页面层，页面按平台弹授权提示窗（`openAuthModal`）引导用户去授权（首页 `onFindCoupon` 转链、`openVipActivity` 坑位兜底均已接入）
+2. 发起 GET 请求（不传 `platform` 与 `pid`，后端自动识别与处理）
+3. `code === 200` 且 `urls.h5_url` 存在 → 成功
+4. `code === -1` 且带 `needAuthPlatform`（用户未授权该平台）→ 透传 `{ code: -1, needAuthPlatform, message }` 给页面层，页面按平台弹授权提示窗（`openAuthModal`）引导用户去授权（首页 `onFindCoupon` 转链、`openVipActivity` 坑位兜底均已接入）
+5. `code === -2` → 提示「不支持的平台」
 6. 其他情况 → 提示转换失败
 
 **UI 交互**：
 - 首页「粘贴购物链接」输入框 → 点击「查找专属优惠」→ 按钮显示「正在转换...」loading 态
-- 转换成功后展示结果卡片：原始链接 / H5 推广链接（**当前仅展示 `h5_url`**；小程序路径与 App 唤起链接暂不展示，数据仍保留在 `linkResult` 中备用）
-- 卡片底部仅保留「一键复制推广链接」按钮（复制 `h5_url`），不再提供单独的字段复制按钮
+- 转换成功后展示结果卡片：原始链接 / H5 推广链接（`h5_url`）
+- **`weapp_url` 有值时**：卡片底部主按钮「前往小程序购买」（主色渐变胶囊，`onJumpWeapp` → `parseWeappUrl` 解析后 `navigateToMiniProgram` 跳转）+ 次按钮「一键复制推广链接」（主色描边胶囊，复制 `h5_url`）；**`weapp_url` 为空时**仅保留「一键复制推广链接」主按钮
+- `parseWeappUrl` 支持两种格式：pdd 返回的小程序长链 `weixin://dl/business/?appid=xxx&path=页面路径&query=编码参数`（解析出 appId 与 path?query）；vip 返回的普通小程序路径（appId 按平台兜底：vip→`wxe9714e742209d35f` / pdd→`wxa918198f16869201`），平台标识由 `convertLink()` 成功时经 `detectPlatform` 写入 `linkResult.platform`
 - 点击 ✕ 可清除结果回到输入状态
 
 ---
@@ -757,6 +745,8 @@ GET /api/tranUrl?uid=xxx&pid=43384525_317172887&source_url=https%3A%2F%2Fp.pindu
 
 | 日期 | 版本 | 变更内容 | 作者 |
 |------|------|----------|------|
+| 2026-10-05 | v0.14.7 | **转链结果支持直接跳转小程序购买**：转链成功且 `weapp_url` 有值时，结果卡片底部改为「前往小程序购买」主按钮（主色渐变胶囊）+「一键复制推广链接」次按钮（主色描边胶囊，复制 `h5_url`），`weapp_url` 为空时维持原单一复制按钮；首页新增 `onJumpWeapp()`（`navigateToMiniProgram` 跳转）与 `parseWeappUrl()`（解析两种 weapp_url 格式：pdd 小程序长链 `weixin://dl/business/?appid=xxx&path=xxx&query=xxx` 解析出 appId 与 path?query；vip 普通小程序路径按平台兜底 appId）；`utils/api.js` `convertLink()` 成功返回新增 `platform` 字段（`detectPlatform` 识别原始链接平台），随 `linkResult.platform` 下发；`app.json` 的 `navigateToMiniProgramAppIdList` 补登记拼多多小程序 `wxf3c8b0b8ea9a142f`（pdd 转链长链中携带的 appId，与多多好货用的 `wxa918198f16869201` 不同） | [3.1](#31-首页-pagesindex-)、[4.6](#46-链接转换接口-)、[2.1](#21-技术栈) |
+| 2026-10-05 | v0.14.6 | **`/api/tranUrl` 接口契约升级（后端重构，前端适配）**：请求参数去掉 `pid`（由后端处理，前端不再下发）；返回结构统一按 `code` 判断三种状态——`200` 成功（`urls.h5_url/weapp_url/weapp_short_link/deeplink_url`）、`-1` 未授权（`needAuthPlatform: 'vip'\|'pdd'` + `message`，走弹窗授权链路）、`-2` 不支持的平台（`message`）；`utils/api.js` `convertLink()` 同步改造——请求 query 删除 `pid`、未授权判定收紧为 `code === -1 && needAuthPlatform`、`-2` 分支改为透传后端 `message`；删除死代码常量 `TRAN_URL_PID`（唯一使用方即 `convertLink` 的 pid 参数）。**顺带修复后端遗留问题**：后端 pdd 转链成功分支此前未返回 `code: 200`（导致拼多多转链必现「链接转换失败」），本次后端已一并修复 | [4.6](#46-链接转换接口-) |
 | 2026-10-03 | v0.14.5 | **第三方授权弹窗统一封装**：首页与商品详情页的 vip/pdd 两套授权弹窗及处理方法（`showVipAuthModal`/`showPddAuthModal`、`onConfirmVipAuth`/`onConfirmPddAuth` 等）合并为一套通用弹窗 `showAuthModal` + `authPlatform`——`openAuthModal(platform)` 打开弹窗并携带平台（场景写死或透传上一接口的 `needAuthPlatform`，支持 vip/pdd），「去授权」统一走 `onConfirmAuth()` 按携带平台调 `/api/thirdAuth/genAuthUrl` 获取 `weapp_url` 跳对应小程序授权页（appId 返回 `weapp_app_id` 优先，兜底 vip/pdd 固定值），`closeAuthModal()` 关闭并清空平台；覆盖场景：首页唯品会坑位、首页多多好货、转链未授权（needAuthPlatform 透传）、商品详情页前往购买 | [3.1](#31-首页-pagesindex-)、[3.4](#34-商品详情页-pagesgoods-)、[4.4](#44-第三方平台授权接口-) |
 | 2026-10-03 | v0.14.4 | **「查找专属优惠」转链接入未授权拦截**：`/api/tranUrl` 新增用户授权判定，未授权时返回 `{ result: true, code: -1, needAuthPlatform: 'vip'|'pdd', message: '用户未授权' }`；`utils/api.js` `convertLink()` 识别 `needAuthPlatform` 并透传给页面层；首页新增 `openAuthModal(platform)` 按平台弹授权提示窗（vip→唯品会 / pdd→拼多多，文案同 v0.14.2 的「授权提醒」），`onFindCoupon`（转链按钮）与 `openVipActivity`（唯品会坑位，兜底 checkAuth 与后端判定不一致场景）均接入该处理，引导用户去授权后可重新转链 | [3.1](#31-首页-pagesindex-)、[4.6](#46-链接转换接口-) |
 | 2026-10-03 | v0.14.3 | **console 接口日志统一为结构化输出**：全项目（`utils/api.js` 12 处、`app.js` 2 处）接口响应日志改为「先一行纯文本说明、下一行单独打印对象」两段式，移除所有 `JSON.stringify` 打印，保证开发者工具 console 中对象可折叠树形查看；并在 4.1 新增 console 日志规范作为后续开发约定 | [4.1](#41-通用约定) |

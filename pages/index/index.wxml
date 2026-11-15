@@ -48,7 +48,12 @@
         </view>
       </block>
     </view>
-    <button class="result-copy-btn" bindtap="onCopyLink">一键复制推广链接</button>
+    <!-- weapp_url 有值：主按钮跳小程序购买，次按钮复制 H5 链接；否则仅保留复制 -->
+    <block wx:if="{{linkResult.weapp_url}}">
+      <button class="result-copy-btn" bindtap="onJumpWeapp">前往小程序购买</button>
+      <button class="result-jump-btn" bindtap="onCopyLink">一键复制推广链接</button>
+    </block>
+    <button class="result-copy-btn" wx:else bindtap="onCopyLink">一键复制推广链接</button>
   </view>
 
   <!-- 今日最优惠活动：数据来自接口；不足两条或接口异常时整区隐藏 -->
