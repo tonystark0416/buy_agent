@@ -2,10 +2,10 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.7
-- 更新日期：2026-10-05
+- 文档版本：v1.8
+- 更新日期：2026-11-15
 - 维护人：liuweizhao（AI 辅助迭代）
-- 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`）
+- 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
 
 ---
 
@@ -21,7 +21,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **目标用户**：通过微信小程序使用导购服务的 C 端用户；管理 Banner/选品的运营人员。
 
-**当前状态**：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由；AI 聊天功能为原型状态；后台管理（订单/用户查询，`/api/admin` + `admin-web/` 前端）已于 2026-09-30 上线（v1.3）。
+**当前状态**：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由；AI 聊天功能为原型状态；后台管理（订单/用户查询，`/api/admin` + `admin-web/` 前端）已于 2026-09-30 上线（v1.3）。2026-11-15 起「值物」微信小程序前端并入本仓库（`clients/wechat-miniprogram/`），后续迭代 iOS / Android 原生 App 也将放在 `clients/` 下。
+
+**文档体系**：本文档是全项目唯一的需求与迭代追踪文档。小程序端的详细需求与 Change Log 保留在 `clients/wechat-miniprogram/REQUIREMENTS.md`（随代码同仓维护），涉及小程序的迭代需**同步更新两处**：本文档（项目级 Change Log 记一条）+ 小程序详细文档（正文与 Change Log）。
 
 ---
 
@@ -55,6 +57,10 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 ├── models/                # 数据访问层：adp_user / adp_order / adp_banner / adp_goods / verification_codes
 │   └── admin/             # 后台管理数据访问（admin_user / adp_order / adp_user 管理侧查询）
 ├── admin-web/             # 后台管理前端工程（Vue3 + Vite + Element Plus，独立 package.json）
+├── clients/               # C 端客户端（2026-11-15 新增）
+│   ├── wechat-miniprogram/  # 值物微信小程序（原 huigenghao 仓库并入，原生小程序，详细需求见其内 REQUIREMENTS.md）
+│   ├── ios/                 # 预留：未来 iOS 原生 App
+│   └── android/             # 预留：未来 Android 原生 App
 ├── job/                   # 订单同步任务：vipOrderSync / meituanOrderSync
 ├── utils/                 # database 连接池 / meituan 签名 / 时间工具
 ├── sql/init.sql           # 建表脚本
@@ -213,6 +219,20 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **部署方式（2026-09-30 起）**：Express 直接托管前端——`app.js` 中 `express.static(admin-web/dist)` + `/admin` SPA 回退，构建产物上传至服务器 `admin-web/dist` 即可，访问 `http://域名/admin`；线上经宝塔 Node项目运行，域名由宝塔自动反代到 3000 端口。开发：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000，访问 `http://localhost:5173/admin/`）。
 
+### 3.13 客户端 · 值物微信小程序（clients/wechat-miniprogram/，2026-11-15 并入）
+
+**需求描述**：C 端用户入口，原生微信小程序（无 npm 构建），提供商品搜索/详情、多平台转链（vip/pdd/meituan）、订单收益查询、第三方平台授权等能力。原为独立仓库 `tonystark0416/huigenghao-xcx`，2026-11-15 以 subtree 方式并入本仓库 `clients/wechat-miniprogram/`（保留全部提交历史，可通过 `git log --follow` / `git blame -C` 追溯旧提交）。
+
+**关键约定**：
+
+1. 接口 Host 唯一入口：`clients/wechat-miniprogram/utils/config.js` 的 `BASE_URL`（DEVELOP=`http://localhost:3000`，TRIAL/RELEASE=`https://hgh.pangpai-car.com`），改环境只动这一处；
+2. 接口调用统一走 `clients/wechat-miniprogram/utils/api.js`，后端改接口时同步检查该文件调用方；
+3. 详细需求与小程序端 Change Log 见 `clients/wechat-miniprogram/REQUIREMENTS.md`（v0.14.6 @ 2026-10-05），小程序迭代需同步更新该文档与本文档 Change Log；
+4. 微信开发者工具打开 `clients/wechat-miniprogram/` 目录即可开发，需将目录加入小程序后台的合法域名/项目配置（域名与原仓库一致，无需变更）；
+5. console 打印接口信息的固定格式：先一行纯文本说明，下一行单独打印数据对象（不合并、不用 JSON.stringify），保证 console 可折叠查看。
+
+**后续规划**：iOS / Android 原生 App 将分别落在 `clients/ios/`、`clients/android/`（预留，未开工）。
+
 ---
 
 ## 4. 平台接入现状
@@ -307,6 +327,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-15 | v1.8 | **仓库架构调整：并入值物微信小程序，monorepo 化**。① 原独立仓库 `huigenghao-xcx` 以 subtree 方式并入 `clients/wechat-miniprogram/`，保留全部提交历史；② 目录结构新增 `clients/` 分组（预留 ios/android，见 2.1）；③ 新增 3.13 客户端章节（小程序关键约定：BASE_URL 唯一入口、api.js 调用方联动检查、文档双更新约定）；④ `.gitignore` 忽略 `.codebuddy/`；⑤ 小程序端详细需求仍维护于 `clients/wechat-miniprogram/REQUIREMENTS.md`（v0.14.6），迭代时与本文档双更新；⑥ 迁移前小程序端已收尾提交（pdd appId 登记、首页坑位适配，v0.14.7 前置改动） | `0268a08`（merge）、`1a400f5`（小程序收尾） |
 | 2026-10-05 | v1.7 | ① 3.5 `/api/tranUrl` 恢复 pdd 按链接转链（解决 P2-1），pdd 转链前同样增加授权预检；② 响应码统一 `200/-1/-2`；③ 必传参数改为 `uid + source_url`；④ P2-5 补充按链接转链的默认 pid/chanTag；⑤ B-8 状态更新（仅剩淘宝识别） | `f142245` |
 | 2026-10-03 | v1.6 | ① 3.2 新增解绑授权接口 `GET /api/thirdAuth/unbind`（仅 vip，调 unbindOpenId）；② 3.5 `/api/tranUrl` vip.com 链接转链前增加授权预检，未授权返回 `needAuthPlatform: 'vip'` 供前端引导授权 | `ba28b81` |
 | 2026-10-03 | v1.5 | 一致性审查（代码 `cb07b10`）+ 修复落地：① 3.9 vip 补拉区间更正为 `2026-09-26 ~ 2026-09-30`（此前文档漏同步 `2aecaf8`）；② 修复 P2-6 前端 401 跳转子路径 404（BASE_URL 拼接）；③ 修复 P3-4（AdminLayout 挂载时 getProfile 刷新 admin_info 缓存、JSON.parse 兜底）；④ 修复 P3-5（ADMIN_JWT_SECRET 缺失启动即报错、删除美团 controller 残留 console.log）。注意：`ADMIN_JWT_SECRET` fail-fast 后，未配置 .env 的环境将无法启动服务 | `1f1bc4d` |

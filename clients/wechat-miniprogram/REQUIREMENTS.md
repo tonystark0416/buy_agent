@@ -1,7 +1,8 @@
 # 值物APP (huigenghao) 需求文档
 
-> 多平台 CPS 返利小程序 | 版本 v0.14.5  
-> 最后更新：2026-10-03
+> 多平台 CPS 返利小程序 | 版本 v0.14.6  
+> 最后更新：2026-10-05  
+> 仓库：已并入 buy_agent monorepo（`clients/wechat-miniprogram/`，2026-11-15 起），原独立仓库 `huigenghao-xcx` 归档
 
 ---
 
