@@ -16,9 +16,11 @@ const adpTranUrlService = require('../services/adpTranUrlService.js');
  * @param {*} res
  */
 exports.tranUrl = async function (req, res) {
+  
   try {
     const { uid, pid, source_url, targetType, targetValueList } = req.query;
     const resultUrl = await adpTranUrlService.tranUrl({ uid, pid, source_url, targetType, targetValueList });
+
     if (resultUrl.needAuthPlatform) {
       res.json({ code: -1, ...resultUrl });
     } else if (resultUrl.message === 'noSuportPlatform') {

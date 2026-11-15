@@ -97,7 +97,7 @@ async function tranUrl({ uid, pid, source_url, targetType, targetValueList }) {
 
 
 
-//===================================通过商品id获取推广链接===========================================
+//===================================通过商品id获取推广链===========================================
 /**
  * param {Object} param0
  * @param {string} param0.platform 平台名称
