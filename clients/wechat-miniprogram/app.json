@@ -13,10 +13,10 @@
     "navigationStyle": "custom"
   },
   "tabBar": {
-    "color": "#999999",
-    "selectedColor": "#ff5000",
+    "color": "#8E8E93",
+    "selectedColor": "#007AFF",
     "backgroundColor": "#ffffff",
-    "borderStyle": "black",
+    "borderStyle": "white",
     "list": [
       {
         "pagePath": "pages/index/index",

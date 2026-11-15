@@ -464,7 +464,8 @@ Component({
 
         wx.hideLoading();
 
-        const isSuccess = res && (res.result || res.success || res.code === 0);
+        // 成功判定兼容 v2（{ code:200, data }）与 legacy（{ result/success: true, data }）
+        const isSuccess = res && (res.code === 200 || res.result || res.success);
 
         if (isSuccess) {
           const data = res.data || {};

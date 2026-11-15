@@ -427,7 +427,32 @@ async function loginByOpenid(openid) {
 }
 
 // 注：v2 统一格式下登录成功为 { code: 200, msg: 'ok', data: { user, token } }，
-// app.js 的 isSuccess 判断已同步改为 loginResult.code === 200
+// app.js 的成功判定已同步支持 loginResult.code === 200（openid 登录主通道）；
+// 「openid 未绑定」时后端返回 HTTP 400，postRequest reject 后由 loginByOpenid 兜底转成 { success:false }，
+// app.js 据此置 needPhoneLogin=true，引导手机号登录（登录成功后 register 完成 uid+openid 绑定）
+
+/**
+ * 发送手机验证码（预留：iOS / Android App 端使用，小程序暂不调用）
+ * POST {BASE_URL}/api/user/sendVerificationCode
+ * @param {string} phone - 手机号
+ * @returns {Promise<Object>} v2: { code:200, data: {} }；未接 SMS 服务商时 data.devCode 为联调验证码
+ */
+function sendVerificationCode(phone) {
+  return postRequest(`${BASE_URL}/api/user/sendVerificationCode`, { phone });
+}
+
+/**
+ * 手机号+验证码登录（预留：iOS / Android App 端使用，小程序暂不调用）
+ * POST {BASE_URL}/api/user/loginByCode —— 未注册自动注册；携带 openid 时自动绑定
+ * @param {Object} opts
+ * @param {string} opts.phone  - 手机号
+ * @param {string} opts.code   - 6 位验证码
+ * @param {string} [opts.openid] - 微信 openid（可选）
+ * @returns {Promise<Object>} v2: { code:200, data: { user, token } }
+ */
+function loginByCode({ phone, code, openid }) {
+  return postRequest(`${BASE_URL}/api/user/loginByCode`, { phone, code, openid });
+}
 
 // ==================== 第三方授权 ====================
 
@@ -1144,6 +1169,8 @@ module.exports = {
   fetchMeituanIndexGoods,
   fetchPddIndexGoods,
   loginByOpenid,
+  sendVerificationCode,
+  loginByCode,
   checkAuth,
   genAuthUrl,
   convertLink,

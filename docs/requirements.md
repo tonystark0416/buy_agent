@@ -2,7 +2,7 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.9
+- 文档版本：v1.13
 - 更新日期：2026-11-15
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
@@ -73,22 +73,25 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 ### 3.1 用户与认证模块（/api/user、/api/weixin）
 
-**需求描述**：支持微信小程序用户以最小摩擦方式注册/登录，获得 JWT 供后续接口使用。
+**需求描述**：支持微信小程序用户以最小摩擦方式注册/登录，获得 JWT 供后续接口使用。**登录主流程（2026-11-15 起）**：启动时 wx.login → openid → `loginByOpenid` 查 uid，已绑定直接登录；未绑定走微信手机号一键授权 → `register` 注册/登录并自动完成 uid+openid 绑定。
 
 | API | 方法 | 说明 |
 |---|---|---|
 | `/api/user/register` | POST | 注册/登录一体：手机号已存在则直接登录并回填 openid；支持"手机号+密码"、"手机号+openid"、"纯手机号"三种注册方式；密码最少 6 位 |
 | `/api/user/login` | POST | 手机号 + 密码登录（bcrypt 校验） |
 | `/api/user/loginByOpenid` | POST | openid 登录（openid 未绑定账号时报错） |
+| `/api/user/sendVerificationCode` | POST | **发送手机验证码**（预留 iOS/Android App 端；未配置 SMS 服务商时验证码仅打服务端日志并透出 `devCode` 供联调；60s 重发冷却） |
+| `/api/user/loginByCode` | POST | **手机号+验证码登录**（预留 iOS/Android App 端；未注册自动注册；携带 openid 时自动绑定；验证码一次性使用防重放） |
 | `/api/weixin/openid` | GET | 通过 wx.login code 换取 openid |
 | `/api/weixin/getPhone` | GET | 通过 code 获取用户微信手机号 |
 
 **业务规则**：
 - 手机号唯一（`uk_phone`）；openid 与用户一对一绑定，但 `register` 接口**不校验 openid 是否已被其他用户绑定**，会直接覆盖（风险见 P2-3）；`loginByOpenid` 仅在 openid 未绑定时返回错误；
 - 注册成功即签发 JWT（含 userId、phone，1 小时有效期）；
-- 手机号已注册时调用注册接口视为登录，并静默更新 openid；若入参 `openid` 为空字符串/null，会把该用户已绑定的 openid 清空（建议对空值做判断，见 P2-3）。
+- 手机号已注册时调用注册接口视为登录，并静默更新 openid；若入参 `openid` 为空字符串/null，会把该用户已绑定的 openid 清空（建议对空值做判断，见 P2-3）；
+- 验证码通道（2026-11-15 新增，App 预留）：验证码 5 分钟有效、6 位数字、一次性使用、同号 60s 重发冷却；当前为**单实例内存存储**（Map），多实例部署需迁移 Redis/DB；未配置 `SMS_PROVIDER` 时 `sendVerificationCode` 响应附 `devCode`（仅限开发联调，生产接入短信服务商后自动关闭）。
 
-**数据表**：`adp_user`（id、phone、password、nickname、avatar、openid）、`verification_codes`（验证码，当前未启用短信发送流程）。
+**数据表**：`adp_user`（id、phone、password、nickname、avatar、**openid（2026-11-15 补列，此前物理缺失导致 openid 登录恒失败，见 P1-4）**）。
 
 ### 3.2 第三方授权模块（/api/thirdAuth）
 
@@ -252,20 +255,24 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 ## 5. 数据库设计
 
-### 5.1 已建表（sql/init.sql）
-- `users`：手机号唯一，密码哈希、昵称、头像（注：init.sql 中的表名/结构与 models 实际使用的 `adp_user`、`adp_order`、`adp_banner` **不一致**，见问题清单 P1-1）。
+### 5.1 数据库归属（2026-11-15 分库）
 
-### 5.2 实际使用表（由 models 推断，缺正式 DDL）
-- `adp_user`：id, phone, password, openid（代码未使用 nickname/avatar 字段，数据库是否真有这两列待核）
-- `adp_order`：order_sn, uid, goods_id, goods_name, goods_img_url, status, platform, order_amount, commission, create_time, update_time
-- `adp_banner`：type(1=首页 2=运营位), sort 及链接配置字段
-- `adp_goods`（2026-09-20 新增使用）：运营选品商品表，含 platform 字段（当前用于 pdd 首页 Tab）
-- `verification_codes`：phone, code, type(1=登录), expires_at, used
-- `adp_admin_user`（2026-09-30 新增，DDL 见 `sql/admin.sql`）：id, username(唯一), password_hash(bcrypt), nickname, role(admin/operator/readonly), status, last_login_at, create_time, update_time
+本项目数据库为 **`cps`**（远程 MySQL 42.194.245.3），与庞派租车（`pp_*` 表，仍在 `mike` 库）**分库隔离管理**。`mike` 库中的 `adp_*` 同名表已于 2026-11-15 停止写入，仅作迁移前备份保留。本地与服务器 `.env` 的 `DB_NAME=cps`。
+
+**正式 DDL**：`sql/cps-schema.sql`（2026-11-15 由线上库 `SHOW CREATE TABLE` 原样导出，含索引/自增/字符集，新环境建库以此为准）。
+
+### 5.2 实际使用表（6 张，均在 cps 库）
+
+- `adp_user`：用户表（phone/password/openid），当前 63 行
+- `adp_user_auth`：第三方授权绑定遗留表（user_id/biz_code/app_id/openid/unionid），**当前代码无引用**，为历史数据保留（62 行），确认不再需要时可清理
+- `adp_order`：CPS 订单（order_sn/uid/goods/status/platform/order_amount/commission），55 行
+- `adp_banner`：Banner/运营位（type: 1=首页 2=运营位，sort，extra_id/extra_url），5 行
+- `adp_goods`：运营选品（2026-09-20 新增使用，首页 Tab=3 数据源），3 行
+- `adp_admin_user`（2026-09-30 新增，DDL 见 `sql/admin.sql`）：管理员（username 唯一/bcrypt 密码/role/status），1 行
 
 > 注：`adp_order` 的查询索引（uid/platform/create_time/order_sn）已在 `sql/admin.sql` 中以注释形式提供，尚未在库上执行（后台多条件查询量大时建议启用）。
-
-> 四张业务表 `adp_user / adp_order / adp_banner / adp_goods` 均缺正式 DDL（详见 P1-1）。
+>
+> 历史说明：旧 `sql/init.sql`（users/verification_codes 表）与代码实际不符，已于 2026-11-15 删除，由 `cps-schema.sql` 取代（原问题 P1-1 / B-6 关闭）。
 
 ---
 
@@ -273,8 +280,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 变量 | 用途 |
 |---|---|
-| `PORT` / `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 服务与 MySQL |
+| `PORT` / `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 服务与 MySQL（**`DB_NAME=cps`，2026-11-15 起本项目独立库**，与庞派租车的 `mike` 库分库隔离；本地与服务器 .env 均需为 cps） |
 | `JWT_SECRET` / `JWT_EXPIRES_IN` | **C 端用户 JWT 密钥/有效期**（2026-11-15 起必填，缺失启动即报错，fail-fast；**服务器 .env 需配置后再部署**。注：旧值曾泄漏于 git 历史，已按 B-5 轮换，本文档不再记录实际值） |
+| `SMS_PROVIDER` / `SMS_ACCESS_KEY` / `SMS_ACCESS_SECRET` / `SMS_SIGN_NAME` / `SMS_TEMPLATE_CODE` | **短信服务（可选，App 验证码登录预留）**：未配置 provider 时验证码仅打日志并透出 devCode 供联调，生产接入前必须配置 |
 | `VIP_CPS_APPKEY` / `VIP_CPS_APPSECRET` | 唯品会联盟 |
 | `JD_CPS_APPKEY` / `JD_CPS_APPSECRET` | 京东联盟 |
 | `PDD_CPS_CLIENT_ID` / `PDD_CPS_APPSECRET` | 拼多多 |
@@ -292,9 +300,10 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 编号 | 级别 | 问题 | 位置 |
 |---|---|---|---|
-| P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner/adp_goods）不一致，且 `adp_user / adp_order / adp_banner / adp_goods` 四张业务表均缺正式 DDL，新环境无法一键建库 | `sql/init.sql` |
+| P1-1 | 高 | ~~`sql/init.sql` 表名与代码实际使用的表不一致，业务表缺正式 DDL~~（**2026-11-15 已关闭（v1.10）**：随分库迁移，正式 DDL 以线上库原样导出为 `sql/cps-schema.sql`，过时的 init.sql 已删除） | ~~`sql/init.sql`~~（已删）、`sql/cps-schema.sql` |
 | P1-2 | 高 | ~~**敏感信息硬编码**：DeepSeek API Key 明文写死；JWT 密钥、DB 密码有默认明文兜底~~（**2026-11-15 已修复（v1.9）**：AI 聊天模块整体移除；C 端 `JWT_SECRET` 必填走 .env（config 加载期 fail-fast，与 ADMIN_JWT_SECRET 同标准）；DB user/password/database 取消默认兜底。注：旧密钥值仍在 git 历史中（公开仓库），轮换处置见 B-5，本文档不再记录实际值） | ~~`services/aiService.js`~~（已删）、`services/adpUserService.js`、`config/config.js` |
 | P1-3 | 中 | ~~订单同步任务写死补拉日期且以 IIFE 方式运行~~（**2026-11-15 已修复（v1.9）**：两个同步脚本改为 CLI 传参 `node job/xxxSync.js [startDate] [endDate]`，缺省拉取昨天~今天；cron 调度仍未启用，见 B-3） | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
+| P1-4 | 高 | ~~**`adp_user` 表物理缺失 `openid` 列**：models 层 `findByOpenid`/`createUser`/`updateUserInfo` 均使用 openid 字段，但表内从未建过该列（mike 库时代即缺失），openid 登录/绑定全链路恒失败（SQL 报 Unknown column）~~（**2026-11-15 已修复（v1.12）**：cps.adp_user 补 `openid VARCHAR(128) NULL` + 索引 `idx_openid`，`sql/cps-schema.sql` 已同步更新；小程序端 app.js 对 v2 响应 `{code:200}` 的成功判定错误问题一并修复） | `cps.adp_user`（DB）、`sql/cps-schema.sql`、小程序 `app.js` |
 | P2-1 | 中 | ~~`adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛运行时错误~~（2026-10-05 已修复：pdd 按链接转链恢复实现，含 error_response 错误处理） | `services/adpTranUrlService.js` |
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
 | P2-3 | 中 | `updateUserInfo` 将 openid 直接覆盖到已有用户，可能与"openid 一对一绑定"规则冲突（A 用户手机号登录会顶掉原绑定关系） | `models/adpUser.js` / `adpUserService.register` |
@@ -315,10 +324,10 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|---|
 | B-1 | 淘宝 CPS 服务接入路由（转链/详情/物料推荐），补齐 `tb_cps_key` 环境变量 | 高 | 待排期 |
 | B-2 | 京东 CPS 服务接入路由 | 中 | 待排期 |
-| B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + 恢复 cron 定时 + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 部分完成（2026-11-15 v1.9：CLI 传参已上线 `npm run sync:vip` / `npm run sync:meituan [startDate] [endDate]`；cron 定时与平台参数未做） |
+| B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + ~~恢复 cron 定时~~ + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 大部分完成（2026-11-15 v1.9 CLI 传参上线；**2026-11-15 v1.13 cron 定时上线**：PM2 `ecosystem.config.js` 承担调度，唯品会每天 02:00/14:00、美团 02:30/14:30（Asia/Shanghai），一次性进程跑完即退由 PM2 cron 再拉起，job 脚本已补显式 `process.exit`；剩余：淘宝/京东平台接入后按同模式加进程即可） |
 | B-4 | JWT 鉴权中间件接入受保护接口（订单、转链等） | 高 | 待排期 |
 | B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | ✅ 已完成（2026-11-15：AI 模块已删、`JWT_SECRET` 与 DB 配置强制走 .env（fail-fast）、CPS 业务标识集中收敛 config；历史泄漏密钥已全部处置——DeepSeek key 已在平台作废、DB 密码与 JWT_SECRET 已轮换、仓库已转私有；文档中明文密钥值已清除。可选后续：BFG 清洗 git 历史） |
-| B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / ~~verification_codes~~ 正式 DDL 并与代码对齐 | 高 | 待排期 |
+| B-6 | ~~sql/init.sql 补全正式 DDL 并与代码对齐~~ | 高 | ✅ 已完成（2026-11-15：随分库迁移，正式 DDL 导出为 `sql/cps-schema.sql`（线上库原样导出，6 张表），过时的 init.sql 已删除） |
 | B-7 | ~~AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化~~ | 中 | ❌ 已下线（2026-11-15 v1.9：AI 聊天三件套整体移除，openai 依赖卸载；需求重启时从 git 历史找回） |
 | B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（pdd"按商品 ID"与"按 URL"转链均已恢复，双平台授权预检已上线（2026-10-05）；仅剩淘宝链接识别未做） |
 | B-9 | 验证码登录流程（~~表已建~~ verification_codes 已删，重启需求时需重建） | 低 | 待排期 |
@@ -331,6 +340,10 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-15 | v1.13 | **订单同步定时任务上线（PM2）**。① 新增 `ecosystem.config.js`（PM2 配置，入库可复现）：3 个进程——`buy-agent-api`（API 常驻）、`buy-agent-vip-sync`（每天 02:00/14:00）、`buy-agent-meituan-sync`（每天 02:30/14:30，Asia/Shanghai，与唯品会错开）；② 同步任务采用 PM2「一次性进程 + cron_restart」模式：启动 → 拉昨天~今天订单入库 → 自动退出 → 到点再拉起，每天两拉覆盖 CPS 订单状态变化（付款→结算/失效）；③ job 两个脚本补显式 `process.exit(0/1)`（MySQL 连接池阻塞事件循环，一次性模式必须显式退出），本地实测两任务跑完 exit=0；④ 日志落 `logs/pm2/*.log`（带时间戳，logs/ 已 ignore）。**注意：API 若已由宝塔 PM2 管理，用 `--only` 只启动同步任务，勿双开 3000 端口**。补拉历史日期仍用 CLI。B-3 大部分完成 | 待提交 |
+| 2026-11-15 | v1.12 | **登录链路修复与验证码通道预留**。① **根因修复 P1-4**：`adp_user` 表物理缺失 `openid` 列（mike 库时代即缺，分库原样带入），openid 登录/绑定恒报 `Unknown column 'openid'`——已补列 `VARCHAR(128)` + `idx_openid` 索引并重新导出 `cps-schema.sql`；② 小程序 `app.js` 成功判定修复：不认 v2 `{code:200}` 导致已绑定用户也被判登录失败（api.js 注释声称已改但实际漏改），现 `code===200`/`result`/`success` 三格式兼容，登录成功显式置 `needPhoneLogin=false`，并修正 catch 分支不再误触发手机号弹窗；③ 5 个页面（index/orders/goods/life/meituan-goods）登录回调成功判定统一 v2 兼容；④ **验证码登录通道（iOS/Android App 预留）**：新增 `POST /api/user/sendVerificationCode`（6 位码、5min 有效、60s 重发冷却、SMS 服务商集成点、未接服务商时透出 devCode 供联调）与 `POST /api/user/loginByCode`（未注册自动注册、携带 openid 自动绑定、验证码一次性防重放、单实例内存存储）；config 新增可选 `SMS_*` 环境变量段；小程序 api 层同步预留 `sendVerificationCode`/`loginByCode`（页面 UI 暂不接入）；⑤ 冒烟 7 项全过：未绑定 400/发码/限频 400/错码 400/注册绑定 200/直登 200/legacy 兼容，测试数据已清理 | 待提交 |
+| 2026-11-15 | v1.11 | **[小程序] UI 整体改版为 iOS / Apple HIG 风格**：小程序端 v0.16.0——全局设计系统（设计令牌 + 共享弹窗/加载/返回按钮类）、7 页 wxss 全量重写（分段控件/胶囊按钮/毛玻璃底栏/hairline 分组列表）、tabBar 系统蓝 + 图标统一重新着色（PIL 脚本）、移除橙色渐变 hero；页面结构 wxml 与业务逻辑 js 零改动，纯样式层重构。详细清单见小程序 REQUIREMENTS.md v0.16.0。后端无改动 | 待提交 |
+| 2026-11-15 | v1.10 | **数据库隔离：从 `mike` 库迁出至独立 `cps` 库（与庞派租车分库管理）**。① 迁移 6 张表（adp_user 63 行 / adp_user_auth 62 行 / adp_order 55 行 / adp_banner 5 行 / adp_goods 3 行 / adp_admin_user 1 行）至 cps 库，行数逐一校验一致；② 正式 DDL 原样导出为 `sql/cps-schema.sql`（含索引/自增/字符集），**关闭 B-6 / P1-1**；删除与代码不符的过时 `sql/init.sql`；③ 本地 `.env` 切换 `DB_NAME=cps`，**服务器 `.env` 需同步切换后重启**；`mike` 库 `adp_*` 表停止写入仅作备份，`pp_*` 表（庞派租车）不受影响；④ 5.1/5.2 数据库章节重写（分库归属 + 6 张表现状，标注 adp_user_auth 为无引用遗留表）；⑤ 顺手修复密码登录业务错误（未注册/密码错误）误返 500 的问题，统一 400（v2）/ `{success:false,error}`（legacy），双模式冒烟通过 | 待提交 |
 | 2026-11-15 | v1.9 | **代码结构整治（全项目，AI 主导维护模式首次全量落地）**。① 安全止血：C 端 `JWT_SECRET` 迁 .env（config 加载期 fail-fast）、DB user/password/name 取消硬编码兜底、CPS 业务标识（pddPid/vipChanTag/vipJxCode/vipMiniSourceId/vipMiniAppId）集中收敛 `config/config.js` 可 env 覆盖；② 删除死代码：AI 聊天三件套（routes/agentRoutes、controllers/agentController、services/aiService，openai 依赖卸载）、test.js（含真实手机号）、models/VerificationCode.js；③ **C 端统一响应 `{code,msg,data}`**：新增 `utils/response.js`，全部 C 端 controller 接入，`X-Client-Ver: 2` 请求头版本协商兼容线上旧版小程序（legacy 分支待旧版淘汰后移除）；全局错误中间件/404/健康检查统一 JSON；④ 新增 `services/adapters/`（vipAdapter/pddAdapter）集中 vip/pdd 字段映射，搜索/详情/转链三处复用；顺手修复 pdd 商品详情 `goods_sign` 参数错传导致 pdd 详情恒失败的隐性 bug；⑤ models 命名统一 `xxxModel`（adpUser→adpUserModel、adpOrder→adpOrderModel，git mv 保历史）；job 脚本改 CLI 传参（`npm run sync:vip` / `sync:meituan [startDate] [endDate]`）；banner service 合并重复函数；清 debug log/隐式全局变量/pdd searchGoods pid 兜底；⑥ package.json 精简（移除 express-generator/cors/moment/node-cron/openai，补 start/sync scripts）；⑦ 预留 `clients/ios/`、`clients/android/`（README 说明未来消费 v2 统一格式）；⑧ 小程序端：`utils/api.js` 全量适配 v2 格式（请求头 + 适配器解包，页面层契约不变），app.js 登录成功判断改 `code === 200`；⑨ 本地冒烟测试通过（legacy/v2 双模式、404、参数校验、DB 路由）；⑩ 新增根目录 `README.md`（结构地图/快速启动/部署/迭代约定，仓库入口文档）；⑪ `project.private.config.json`（微信开发者工具个人配置）移出 git 跟踪并 ignore。**部署提醒：服务器 .env 需补 `JWT_SECRET` 及 CPS 标识变量后再发布** | 待提交 |
 | 2026-11-15 | v1.8 | **仓库架构调整：并入值物微信小程序，monorepo 化**。① 原独立仓库 `huigenghao-xcx` 以 subtree 方式并入 `clients/wechat-miniprogram/`，保留全部提交历史；② 目录结构新增 `clients/` 分组（预留 ios/android，见 2.1）；③ 新增 3.13 客户端章节（小程序关键约定：BASE_URL 唯一入口、api.js 调用方联动检查、文档双更新约定）；④ `.gitignore` 忽略 `.codebuddy/`；⑤ 小程序端详细需求仍维护于 `clients/wechat-miniprogram/REQUIREMENTS.md`（v0.14.6），迭代时与本文档双更新；⑥ 迁移前小程序端已收尾提交（pdd appId 登记、首页坑位适配，v0.14.7 前置改动） | `0268a08`（merge）、`1a400f5`（小程序收尾） |
 | 2026-10-05 | v1.7 | ① 3.5 `/api/tranUrl` 恢复 pdd 按链接转链（解决 P2-1），pdd 转链前同样增加授权预检；② 响应码统一 `200/-1/-2`；③ 必传参数改为 `uid + source_url`；④ P2-5 补充按链接转链的默认 pid/chanTag；⑤ B-8 状态更新（仅剩淘宝识别） | `f142245` |

@@ -11,6 +11,15 @@ const config = {
         secret: requireEnv('JWT_SECRET'),
         expiresIn: process.env.JWT_EXPIRES_IN || '1h',
     },
+    // 短信服务（可选：手机验证码登录通道，为 iOS/Android App 预留）
+    // 未配置 provider 时验证码仅打印服务端日志并透出 devCode 供联调，生产必须接入
+    sms: {
+        provider: process.env.SMS_PROVIDER || '',       // 预留：aliyun / tencent 等
+        accessKey: process.env.SMS_ACCESS_KEY || '',
+        accessSecret: process.env.SMS_ACCESS_SECRET || '',
+        signName: process.env.SMS_SIGN_NAME || '',      // 短信签名
+        templateCode: process.env.SMS_TEMPLATE_CODE || '', // 模板 ID
+    },
     vip_cps_key: {
         appKey: process.env.VIP_CPS_APPKEY,
         appSecret: process.env.VIP_CPS_APPSECRET,

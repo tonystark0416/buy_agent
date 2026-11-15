@@ -18,7 +18,11 @@ exports.passwordLogin = async (req, res, next) => {
     // legacy: { success: true, data }
     ok(req, res, data, () => ({ success: true, data }));
   } catch (err) {
-    next(err);
+    // 业务错误（手机号未注册/密码错误等）→ 400，legacy 保留旧结构
+    if (req.get('x-client-ver') === '2') {
+      return fail(res, 400, err.message);
+    }
+    return res.status(200).json({ success: false, error: err.message });
   }
 };
 
@@ -66,5 +70,35 @@ exports.loginByOpenid = async (req, res, next) => {
       return fail(res, 400, err.message);
     }
     return res.json({ result: false, error: err.message });
+  }
+};
+
+// 发送手机验证码（预留：iOS / Android App 手机号+验证码登录）
+exports.sendVerificationCode = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    const data = await userService.sendVerificationCode(phone);
+    // legacy: { success: true, data }（devCode 仅在未接 SMS 服务商时存在，供联调）
+    ok(req, res, data, () => ({ success: true, data }));
+  } catch (err) {
+    if (req.get('x-client-ver') === '2') {
+      return fail(res, 400, err.message);
+    }
+    return res.status(200).json({ success: false, error: err.message });
+  }
+};
+
+// 手机号+验证码登录（未注册自动注册；携带 openid 时绑定）（预留：iOS / Android App）
+exports.loginByCode = async (req, res, next) => {
+  try {
+    const { phone, code, openid } = req.body;
+    const data = await userService.loginByCode({ phone, code, openid });
+    // legacy: { success: true, data }
+    ok(req, res, data, () => ({ success: true, data }));
+  } catch (err) {
+    if (req.get('x-client-ver') === '2') {
+      return fail(res, 400, err.message);
+    }
+    return res.status(200).json({ success: false, error: err.message });
   }
 };

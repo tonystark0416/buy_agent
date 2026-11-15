@@ -8,9 +8,6 @@
     </view>
   </view>
 
-  <!-- 顶部渐变延伸：让内容区从橙色氛围中自然过渡，转链卡片悬浮其上 -->
-  <view class="page-hero"></view>
-
   <!-- 粘贴购物链接 -->
   <view class="link-section">
     <view class="link-input-wrap">

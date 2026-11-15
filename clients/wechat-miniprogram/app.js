@@ -61,9 +61,16 @@ App({
       // Step 3: 调用 loginByOpenid 完成登录
       const loginResult = await api.loginByOpenid(openid);
 
-      // 兼容多种成功格式: result / success / code===0
-      const isSuccess = loginResult
-        && (loginResult.result || loginResult.success || loginResult.code === 0);
+      // 成功判定（兼容格式）：
+      //   v2 统一格式（当前主通道）: { code: 200, msg: 'ok', data: { user, token } }
+      //   legacy 旧结构: { result: true, data } / { success: true, data }
+      // 注意：后端对「openid 未绑定」在 v2 下返回 HTTP 400 {code:400}，
+      // api.js postRequest 对非 200 会 reject 并在 catch 中转成 { success:false }，同样走下方 else 分支
+      const isSuccess = !!(loginResult && (
+        loginResult.code === 200
+        || loginResult.result
+        || loginResult.success
+      ));
 
       if (isSuccess) {
         const data = loginResult.data || {};
@@ -72,22 +79,24 @@ App({
         this.globalData.userId = user.id || data.userId || data.id || '';
         this.globalData.userInfo = (user.nickname || user.avatar) ? user : (data.userInfo || null);
         this.globalData.isLogin = true;
+        this.globalData.needPhoneLogin = false;
         // 同步用户 uid，供转链等接口使用
-        api.setUserConfig({ uid: this.globalData.userId });
+        api.setUserConfig({ uid: this.globalData.userId, openid });
 
         wx.setStorageSync('token', this.globalData.token);
         wx.setStorageSync('userId', this.globalData.userId);
         wx.setStorageSync('userInfo', this.globalData.userInfo);
 
-        console.log('[Login] 登录成功，userId:', this.globalData.userId);
+        console.log('[Login] openid 登录成功，userId:', this.globalData.userId);
       } else {
-        // 未注册，需要手机号登录
-        console.warn('[Login] loginByOpenid 返回失败，原始结果:');
-        console.warn(loginResult);
+        // openid 未绑定账号 → 走手机号登录（登录成功后由 /api/user/register 完成 uid+openid 绑定）
+        console.log('[Login] openid 未绑定账号，需要手机号登录');
         this.globalData.needPhoneLogin = true;
       }
     } catch (err) {
       console.error('[Login] 登录异常:', err);
+      // 网络异常等：视为未登录，但不强推手机号弹窗，由具体页面在需要登录态时再触发
+      this.globalData.isLogin = false;
     }
   },
 

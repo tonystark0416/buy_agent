@@ -1,5 +1,5 @@
 <!--pages/search/search.wxml-->
-<navigation-bar title="商品搜索" back="{{true}}" color="black" background="#FFF"></navigation-bar>
+<navigation-bar title="商品搜索" back="{{true}}" color="black" background="#F2F2F7"></navigation-bar>
 
 <view class="page">
   <!-- 搜索栏区域 -->

@@ -166,10 +166,11 @@ async function pullOrdersByDateRange(startDate, endDate) {
 }
 
 
-// ================= 手动执行入口（CLI） =================
+// ================= 执行入口（CLI 手动 + PM2 定时） =================
 // 用法: node job/meituanOrderSync.js [startDate] [endDate]
 //   node job/meituanOrderSync.js                    → 默认拉取昨天 ~ 今天
 //   node job/meituanOrderSync.js 2026-09-01 2026-09-12
+// 定时调度: 由 PM2 ecosystem.config.js cron_restart 承担（每天 02:30/14:30，Asia/Shanghai）
 (function main() {
     const [startDate, endDate] = process.argv.slice(2);
     const fmt = (d) => d.toISOString().slice(0, 10);
@@ -177,6 +178,10 @@ async function pullOrdersByDateRange(startDate, endDate) {
     const end = endDate || fmt(new Date());
     console.log(`[meituanOrderSync] 拉取区间: ${start} ~ ${end}`);
     pullOrdersByDateRange(start, end)
-        .then((orders) => console.log('总订单数:', orders.length))
-        .catch((err) => { console.error(err); process.exitCode = 1; });
+        .then((orders) => {
+            console.log('总订单数:', orders.length);
+            // 显式退出：MySQL 连接池会阻塞事件循环，PM2 一次性任务模式（跑完即退 + cron 再拉起）依赖进程正常退出
+            process.exit(0);
+        })
+        .catch((err) => { console.error(err); process.exit(1); });
 })();

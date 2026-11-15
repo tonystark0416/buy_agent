@@ -1,212 +1,187 @@
-/**index.wxss**/
+/**
+ * pages/index/index.wxss — 首页（iOS 风格）
+ * 布局：iOS 分组列表形态 —— 灰底 + 白卡片，主色系统蓝，分段控件切换商品源
+ * 弹窗/加载/空状态类复用 app.wxss 全局定义
+ */
 
-page {
-  background: #f5f5f5;
+.page {
+  padding-bottom: 40rpx;
 }
 
-/* 顶部搜索栏（固定在视口顶部，顶部间距由 JS 按状态栏高度填充，右侧为胶囊按钮让位收窄）
-   渐变为垂直方向：底边统一落在 #ff9402，与下方 .page-hero 顶部无缝衔接 */
+/* ==================== 顶部搜索栏（自定义导航，让位胶囊） ==================== */
+
 .search-bar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  padding: 0 0 10rpx 32rpx;
-  box-sizing: border-box;
-  background: linear-gradient(180deg, #ff4d00, #ff9402);
+  padding: 16rpx 32rpx 16rpx;
+  background: var(--ios-bg);
 }
 
 .search-box {
-  flex: 1;
-  min-width: 0;
   display: flex;
   align-items: center;
-  height: 64rpx;
-  box-sizing: border-box;
-  background: #ffffff;
-  border: none;
-  border-radius: 40rpx;
+  height: 72rpx;
+  background: var(--ios-fill);
+  border-radius: 20rpx;
   padding: 0 24rpx;
-  box-shadow: 0 6rpx 18rpx rgba(255, 77, 0, 0.18);
 }
 
 .search-icon {
   font-size: 28rpx;
   margin-right: 12rpx;
-  line-height: 1;
+  opacity: 0.55;
 }
 
 .search-placeholder {
   font-size: 28rpx;
-  color: #bbb;
+  color: var(--ios-label2);
 }
 
-/* 顶部渐变延伸块：与吸顶搜索栏同色系向下渐隐，滚动时从吸顶栏下滑走 */
-.page-hero {
-  height: 200rpx;
-  margin-bottom: -120rpx;
-  background: linear-gradient(180deg, #ff9402 0%, rgba(255, 148, 2, 0) 100%);
-}
+/* ==================== 粘贴链接转链卡片 ==================== */
 
-/* 粘贴购物链接（负 margin 上浮，悬浮于渐变之上） */
 .link-section {
-  position: relative;
-  z-index: 10;
-  background: #fff;
-  border-radius: 24rpx;
-  padding: 24rpx;
-  margin: 0 24rpx 20rpx;
-  box-shadow: 0 8rpx 30rpx rgba(255, 77, 0, 0.12);
+  margin: 8rpx 32rpx 0;
+  background: var(--ios-card);
+  border-radius: var(--radius-card);
+  padding: 28rpx 28rpx 32rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .link-input-wrap {
-  display: flex;
-  flex-direction: column;
-  height: 160rpx;
-  background: #f5f5f5;
-  border-radius: 16rpx;
-  padding: 20rpx 20rpx 16rpx;
-  margin-bottom: 20rpx;
+  position: relative;
 }
 
 .link-textarea {
-  flex: 1;
   width: 100%;
+  height: 140rpx;
+  background: var(--ios-fill);
+  border-radius: var(--radius-control);
+  padding: 20rpx 140rpx 20rpx 24rpx;
+  box-sizing: border-box;
   font-size: 26rpx;
-  color: #333;
-  line-height: 1.6;
+  color: var(--ios-label);
+  line-height: 1.5;
 }
 
 .link-placeholder {
-  color: #bbb;
-  font-size: 26rpx;
+  color: var(--ios-label3);
 }
 
+/* 粘贴按钮：iOS tinted 小按钮 */
 .link-paste-btn {
-  align-self: flex-end;
-  min-width: 172rpx;
-  padding: 0 36rpx;
-  height: 56rpx;
-  line-height: 52rpx;
-  text-align: center;
+  position: absolute;
+  right: 16rpx;
+  bottom: 20rpx;
+  padding: 10rpx 28rpx;
+  background: var(--ios-blue-tint);
+  color: var(--ios-blue);
   font-size: 26rpx;
   font-weight: 500;
-  color: #ff5000;
-  background: #fff;
-  border: 2rpx solid rgba(255, 80, 0, 0.55);
-  border-radius: 28rpx;
-  margin-top: 12rpx;
-  transition: opacity 0.15s;
+  border-radius: 26rpx;
 }
 
 .link-paste-btn-hover {
-  opacity: 0.7;
+  background: rgba(0, 122, 255, 0.22);
 }
 
+/* 主按钮：iOS filled 蓝，胶囊 */
 .link-find-btn {
-  width: 100%;
-  height: 80rpx;
-  line-height: 80rpx;
+  margin-top: 24rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   text-align: center;
+  background: var(--ios-blue);
+  color: #FFFFFF;
   font-size: 30rpx;
-  font-weight: bold;
-  color: #fff;
-  background: linear-gradient(135deg, #ff4d00, #ff9402);
-  border-radius: 40rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
+}
+
+.link-find-btn:active {
+  background: var(--ios-blue-press);
 }
 
 .btn-disabled {
-  opacity: 0.6;
-  pointer-events: none;
+  background: var(--ios-label3);
+  color: #FFFFFF;
 }
 
-/* ==================== 链接转换结果卡片 ==================== */
+/* ==================== 转换结果卡片 ==================== */
+
 .link-result-card {
-  background: #fff;
-  margin: 0 24rpx 16rpx;
-  border-radius: 20rpx;
-  padding: 28rpx 28rpx 24rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
-  animation: resultSlideIn 0.3s ease-out;
-}
-
-@keyframes resultSlideIn {
-  from { opacity: 0; transform: translateY(-16rpx); }
-  to   { opacity: 1; transform: translateY(0); }
+  margin: 24rpx 32rpx 0;
+  background: var(--ios-card);
+  border-radius: var(--radius-card);
+  padding: 28rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .result-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20rpx;
+  justify-content: space-between;
 }
 
 .result-label-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ios-label);
 }
 
 .result-close {
-  width: 44rpx;
-  height: 44rpx;
-  line-height: 44rpx;
-  text-align: center;
-  font-size: 28rpx;
-  color: #ccc;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ios-fill);
+  border-radius: 24rpx;
+  color: var(--ios-label2);
+  font-size: 24rpx;
 }
 
 .result-body {
-  background: #fafafa;
-  border-radius: 12rpx;
-  padding: 20rpx 24rpx;
-  margin-bottom: 24rpx;
+  margin-top: 20rpx;
 }
 
 .result-section {
-  display: flex;
-  flex-direction: column;
+  padding: 12rpx 0;
 }
 
 .result-label {
-  font-size: 22rpx;
-  color: #999;
+  display: block;
+  font-size: 24rpx;
+  color: var(--ios-label2);
   margin-bottom: 8rpx;
 }
 
 .result-url-text {
-  font-size: 26rpx;
-  color: #666;
+  display: block;
+  font-size: 24rpx;
+  color: var(--ios-label);
   word-break: break-all;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .result-url-highlight {
-  color: #ff5000;
-  font-weight: 500;
+  color: var(--ios-blue);
 }
 
 .result-divider {
-  height: 1rpx;
-  background: #e8e8e8;
-  margin: 16rpx 0;
+  height: 1px;
+  background: var(--ios-separator);
+  margin: 8rpx 0;
 }
 
+/* 结果操作按钮：主蓝 + 次 tinted */
 .result-copy-btn {
+  margin-top: 24rpx;
   width: 100%;
-  height: 80rpx;
-  line-height: 80rpx;
-  text-align: center;
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #fff;
-  background: linear-gradient(135deg, #ff4d00, #ff9402);
-  border: none;
-  box-sizing: border-box;
-  border-radius: 40rpx;
-  box-shadow: 0 6rpx 16rpx rgba(255, 77, 0, 0.25);
+  height: 84rpx;
+  line-height: 84rpx;
+  background: var(--ios-blue);
+  color: #FFFFFF;
+  font-size: 28rpx;
+  font-weight: 600;
+  border-radius: 42rpx;
   padding: 0;
 }
 
@@ -214,20 +189,20 @@ page {
   border: none;
 }
 
-/* 转链结果卡片次按钮：主色描边胶囊（复制 H5 链接） */
+.result-copy-btn:active {
+  background: var(--ios-blue-press);
+}
+
 .result-jump-btn {
+  margin-top: 16rpx;
   width: 100%;
-  height: 80rpx;
-  line-height: 76rpx;
-  margin: 20rpx 0 0;
-  text-align: center;
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #ff4d00;
-  background: #fff;
-  border: 2rpx solid #ff4d00;
-  box-sizing: border-box;
-  border-radius: 40rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  background: var(--ios-blue-tint);
+  color: var(--ios-blue);
+  font-size: 28rpx;
+  font-weight: 500;
+  border-radius: 42rpx;
   padding: 0;
 }
 
@@ -235,144 +210,139 @@ page {
   border: none;
 }
 
-/* 今日最优惠活动（两坑位横排：左图 + 右侧标题/子标题） */
+.result-jump-btn:active {
+  background: rgba(0, 122, 255, 0.22);
+}
+
+/* ==================== 今日活动（分组卡片） ==================== */
+
 .activity-section {
-  margin: 0 24rpx 16rpx;
+  margin: 32rpx 32rpx 0;
 }
 
 .activity-grid {
   display: flex;
-  gap: 16rpx;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
 .activity-card {
-  flex: 1;
-  background: #fff;
-  border-radius: 20rpx;
-  padding: 12rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
-  min-width: 0;
-  transition: transform 0.15s;
+  background: var(--ios-card);
+  border-radius: var(--radius-card);
+  padding: 24rpx;
+  box-shadow: var(--shadow-card);
 }
 
 .activity-card-hover {
-  transform: scale(0.97);
-}
-
-.activity-head-text {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-title {
-  font-size: 28rpx;
-  font-weight: bold;
-  color: #333;
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.activity-subtitle {
-  font-size: 20rpx;
-  color: #999;
-  margin-top: 4rpx;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.75);
+  transform: scale(0.985);
 }
 
 .activity-image {
-  width: 128rpx;
-  height: 128rpx;
-  margin-right: 16rpx;
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 16rpx;
+  background: var(--ios-fill);
+  overflow: hidden;
   flex-shrink: 0;
-}
-
-.activity-image-img {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.activity-image-placeholder {
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #f5f7f8, #e9eef0);
-  border-radius: 8rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.activity-image-placeholder text {
-  font-size: 24rpx;
-  color: #999;
+.activity-image-img {
+  width: 100%;
+  height: 100%;
 }
 
-/* 瀑布流商品列表 */
+.activity-image-placeholder {
+  font-size: 22rpx;
+  color: var(--ios-label3);
+}
+
+.activity-head-text {
+  flex: 1;
+  margin-left: 24rpx;
+  overflow: hidden;
+}
+
+.activity-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--ios-label);
+}
+
+.activity-subtitle {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: var(--ios-label2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== 精选商品（iOS 分段控件 + 瀑布流） ==================== */
+
 .goods-section {
-  padding: 28rpx 24rpx 60rpx 24rpx;
+  margin: 32rpx 32rpx 0;
 }
 
-/* 商品三 tab 切换栏 */
+/* iOS Segmented Control */
 .goods-tabs {
   display: flex;
-  background: #fff;
-  border-radius: 16rpx;
-  margin-bottom: 16rpx;
-  padding: 8rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  background: var(--ios-fill);
+  border-radius: 20rpx;
+  padding: 4rpx;
 }
 
 .goods-tab {
   flex: 1;
-  height: 64rpx;
-  line-height: 64rpx;
+  height: 68rpx;
+  line-height: 68rpx;
   text-align: center;
-  font-size: 28rpx;
-  color: #666;
-  border-radius: 12rpx;
-  transition: all 0.2s;
+  font-size: 27rpx;
+  color: var(--ios-label);
+  border-radius: 16rpx;
+  transition: all 0.2s ease;
 }
 
 .goods-tab-active {
-  color: #fff;
-  font-weight: bold;
-  background: linear-gradient(135deg, #ff4d00, #ff9402);
-  box-shadow: 0 4rpx 12rpx rgba(255, 77, 0, 0.28);
+  background: var(--ios-card);
+  color: var(--ios-label);
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.12);
 }
 
+/* 瀑布流 */
 .waterfall-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  margin-top: 24rpx;
+  column-count: 2;
+  column-gap: 20rpx;
 }
 
 .goods-card {
-  width: calc(50% - 8rpx);
-  background: #fff;
-  border-radius: 20rpx;
+  break-inside: avoid;
+  margin-bottom: 20rpx;
+  background: var(--ios-card);
+  border-radius: var(--radius-card);
   overflow: hidden;
-  margin-bottom: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-  transition: transform 0.15s;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s ease;
 }
 
 .goods-card-hover {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 .goods-image {
   width: 100%;
   display: block;
-  background: #f8f8f8;
+  background: var(--ios-fill);
 }
 
 .goods-info {
@@ -380,162 +350,63 @@ page {
 }
 
 .goods-title {
-  font-size: 26rpx;
-  color: #333;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  line-height: 1.4;
-  margin-bottom: 6rpx;
+  font-size: 26rpx;
+  color: var(--ios-label);
+  line-height: 1.45;
 }
 
 .goods-subtitle {
   display: block;
+  margin-top: 6rpx;
   font-size: 22rpx;
-  color: #999;
-  line-height: 1.3;
-  margin-bottom: 10rpx;
+  color: var(--ios-label2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .goods-price-row {
+  margin-top: 12rpx;
   display: flex;
   align-items: baseline;
-  margin-bottom: 6rpx;
+  flex-wrap: wrap;
+  gap: 8rpx;
 }
 
-/* “券后”小标签：强化价格语义 */
 .goods-price-flag {
   font-size: 20rpx;
-  color: #ff5000;
-  background: rgba(255, 80, 0, 0.08);
-  border-radius: 6rpx;
-  padding: 2rpx 8rpx;
-  margin-right: 8rpx;
-  flex-shrink: 0;
+  color: var(--ios-red);
+  background: rgba(255, 59, 48, 0.1);
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
 }
 
 .goods-price {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #ff5000;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--ios-red);
 }
 
 .goods-original-price {
   font-size: 22rpx;
-  color: #bbb;
+  color: var(--ios-label3);
   text-decoration: line-through;
-  margin-left: auto;
-  padding-left: 8rpx;
-  flex-shrink: 0;
-}
-
-.goods-rebate {
-  font-size: 22rpx;
-  color: #ff5000;
-  background: rgba(255, 80, 0, 0.1);
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-}
-
-.goods-status {
-  text-align: center;
-  padding: 60rpx 0;
-  font-size: 26rpx;
-  color: #bbb;
 }
 
 .goods-loading {
+  padding: 32rpx 0;
   text-align: center;
-  padding: 24rpx 0;
-  font-size: 24rpx;
-  color: #bbb;
+  color: var(--ios-label2);
+  font-size: 26rpx;
 }
 
 .goods-end {
+  padding: 32rpx 0 16rpx;
   text-align: center;
-  padding: 24rpx 0;
+  color: var(--ios-label3);
   font-size: 24rpx;
-  color: #ccc;
-}
-
-/* 手机号登录弹窗 */
-.login-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.login-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.login-dialog {
-  position: relative;
-  width: 560rpx;
-  background: #fff;
-  border-radius: 32rpx;
-  padding: 60rpx 48rpx 48rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: dialogPopIn 0.25s ease-out;
-}
-
-@keyframes dialogPopIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-.login-title {
-  font-size: 34rpx;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 16rpx;
-}
-
-.login-desc {
-  font-size: 26rpx;
-  color: #999;
-  margin-bottom: 48rpx;
-}
-
-.login-phone-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  background: linear-gradient(135deg, #ff4d00, #ff9402);
-  color: #fff;
-  font-size: 30rpx;
-  font-weight: bold;
-  border: none;
-  box-sizing: border-box;
-  border-radius: 44rpx;
-  box-shadow: 0 8rpx 20rpx rgba(255, 77, 0, 0.25);
-  padding: 0;
-}
-
-.login-phone-btn::after {
-  border: none;
-}
-
-.login-skip {
-  margin-top: 32rpx;
-  font-size: 26rpx;
-  color: #bbb;
-  padding: 8rpx 16rpx;
 }

@@ -13,4 +13,7 @@ const userController = require('../controllers/adpUserController.js');
 router.post('/login', userController.passwordLogin); //登陆
 router.post('/register', userController.register); //注册
 router.post('/loginByOpenid', userController.loginByOpenid); //openid登录
+// 手机号+验证码登录通道（预留：iOS / Android App 端使用）
+router.post('/sendVerificationCode', userController.sendVerificationCode); //发送验证码
+router.post('/loginByCode', userController.loginByCode); //验证码登录（未注册自动注册）
 module.exports = router;

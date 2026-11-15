@@ -353,7 +353,7 @@ Component({
 
         wx.hideLoading();
 
-        const isSuccess = res && (res.result || res.success || res.code === 0);
+        const isSuccess = res && (res.code === 200 || res.result || res.success);
 
         if (isSuccess) {
           const data = res.data || {};
