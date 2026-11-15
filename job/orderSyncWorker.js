@@ -1,5 +1,5 @@
 /**
- * 订单同步常驻工作进程（PM2: buy-agent-sync-worker）
+ * 订单同步常驻工作进程（PM2: cps-sync-worker）
  *
  * 职责:
  * 1. 每 SYNC_INTERVAL_MINUTES 分钟增量拉取唯品会 + 美团最近 SYNC_RECENT_HOURS 小时的订单
@@ -7,7 +7,7 @@
  * 2. 每天 03:00 后第一轮额外做一次「昨天 ~ 今天」全量兜底补拉（防增量窗口遗漏，如 API 延迟）
  *
  * 运行方式: PM2 常驻（autorestart: true），由 ecosystem.config.js 管理
- * 手动立即触发一轮: pm2 restart buy-agent-sync-worker
+ * 手动立即触发一轮: pm2 restart cps-sync-worker
  * 补拉历史日期: node job/vipOrderSync.js 2026-09-01 2026-09-30（CLI 不走本进程）
  */
 

@@ -12,11 +12,11 @@
  * - buy-agent-api: API 常驻服务（3000 端口）。
  *   ⚠ 若 API 目前已由宝塔面板的 PM2 管理，请勿双开——要么用 --only 只启动 sync-worker，
  *     要么停掉宝塔那个后统一切到本文件管理（推荐，配置进 git 可复现）。
- * - buy-agent-sync-worker: 订单同步常驻工作进程（唯品会 + 美团合一）——
+ * - cps-sync-worker: 订单同步常驻工作进程（唯品会 + 美团合一）——
  *   每 5 分钟增量拉取最近 2 小时订单（按更新时间维度，新单与状态变化都覆盖；
  *   两平台 API 单次查询限 1 小时，自动按小时分段），每天 03:00 后全量兜底补拉一次昨天~今天。
  *   间隔/窗口可用环境变量 SYNC_INTERVAL_MINUTES / SYNC_RECENT_HOURS 调整。
- *   手动立即触发一轮: pm2 restart buy-agent-sync-worker
+ *   手动立即触发一轮: pm2 restart cps-sync-worker
  *   补拉历史日期仍用 CLI: node job/vipOrderSync.js 2026-09-26 2026-09-30
  *
  * 日志: logs/pm2/*.log（time: true 每行带时间戳；logs/ 已在 .gitignore）
@@ -37,7 +37,7 @@ module.exports = {
       time: true,
     },
     {
-      name: 'buy-agent-sync-worker',
+      name: 'cps-sync-worker',
       script: 'job/orderSyncWorker.js',
       cwd: __dirname,
       autorestart: true,                 // 常驻进程，崩溃自动拉起

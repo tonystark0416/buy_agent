@@ -199,7 +199,7 @@ module.exports = { syncRecent, pullOrdersByDateRange };
 
 // ================= CLI 手动执行入口 =================
 // 用法: node job/meituanOrderSync.js [startDate] [endDate]（补拉历史，如 2026-09-01 2026-09-12）
-// 定时增量同步: 由常驻进程 job/orderSyncWorker.js 调度（PM2: buy-agent-sync-worker）
+// 定时增量同步: 由常驻进程 job/orderSyncWorker.js 调度（PM2: cps-sync-worker）
 if (require.main === module) {
     const [startDate, endDate] = process.argv.slice(2);
     const fmt = (d) => d.toISOString().slice(0, 10);

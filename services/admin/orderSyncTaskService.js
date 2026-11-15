@@ -9,7 +9,7 @@
  * - 任务结果按 order_sn upsert 入库，重复拉取幂等
  * - 内存态：进程重启任务丢失（重启中断的长任务重新发起即可，幂等无害）；仅保留最近 50 条记录
  *
- * 注: 任务跑在 API 进程内（后台手动触发），与常驻 worker（buy-agent-sync-worker，5 分钟增量）
+ * 注: 任务跑在 API 进程内（后台手动触发），与常驻 worker（cps-sync-worker，5 分钟增量）
  *     互不干扰——两者都是按 order_sn upsert，并发写安全
  */
 
