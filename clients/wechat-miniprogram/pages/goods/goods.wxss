@@ -1,0 +1,384 @@
+/**pages/goods/goods.wxss**/
+
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 悬浮返回按钮 */
+.nav-back-btn {
+  position: fixed;
+  left: 16px;
+  z-index: 999;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  /* 半透明白底，可透出底部图片 */
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-back-btn-hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.nav-back-icon {
+  width: 18px;
+  height: 18px;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M15%204.5%20L7.5%2012%20L15%2019.5'%20stroke='%23333333'%20stroke-width='2.6'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* 加载态 */
+.loading-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+/* 滚动区 */
+.detail-scroll {
+  flex: 1;
+  min-height: 0;
+  height: 0;
+}
+
+/* 商品主图轮播 */
+.goods-swiper {
+  width: 100%;
+  height: 750rpx;
+  background: #f8f8f8;
+}
+
+.goods-swiper .swiper-item {
+  width: 100%;
+  height: 750rpx;
+}
+
+.goods-image {
+  width: 100%;
+  height: 750rpx;
+  display: block;
+  background: #f8f8f8;
+}
+
+/* 价格区域（浅橙渐变底，与美团详情页一致） */
+.price-section {
+  background: linear-gradient(135deg, #fff4ec 0%, #ffffff 70%);
+  padding: 28rpx 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.price-row {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 12rpx;
+}
+
+.price-symbol {
+  font-size: 28rpx;
+  color: #ff5000;
+  font-weight: 600;
+}
+
+.price-value {
+  font-size: 48rpx;
+  color: #ff5000;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 12rpx;
+}
+
+.original-price {
+  font-size: 24rpx;
+  color: #bbb;
+  text-decoration: line-through;
+  margin-right: 12rpx;
+}
+
+/* 价格计算方式 */
+.price-desc-row {
+  margin-top: 16rpx;
+}
+
+.price-desc-inner {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 77, 0, 0.1);
+  border-radius: 10rpx;
+  padding: 8rpx 20rpx;
+  line-height: 1;
+}
+
+.price-desc-part {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.price-desc-part-hl {
+  color: #ff5000;
+  font-weight: 600;
+}
+
+.price-desc-minus {
+  font-size: 22rpx;
+  color: #ff5000;
+  margin: 0 12rpx;
+}
+
+/* 返利行 */
+.rebate-row {
+  display: flex;
+  align-items: baseline;
+}
+
+.rebate-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-right: 8rpx;
+}
+
+.rebate-value {
+  font-size: 32rpx;
+  color: #ff5000;
+  font-weight: 700;
+  margin-right: 4rpx;
+}
+
+.rebate-rate {
+  font-size: 22rpx;
+  color: #ff5000;
+}
+
+/* 商品信息 */
+.info-section {
+  background: #fff;
+  padding: 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.goods-title {
+  font-size: 30rpx;
+  color: #333;
+  line-height: 44rpx;
+}
+
+/* 标签 */
+.tags-row {
+  background: #fff;
+  padding: 0 24rpx;
+  margin-bottom: 12rpx;
+  display: flex;
+  flex-wrap: wrap;
+  /* 预留两行标签的高度：单行时产生富余空间，配合 align-content 实现真正垂直居中 */
+  min-height: 100rpx;
+  box-sizing: border-box;
+  /* 多行标签作为一个整体在其区域内垂直居中 */
+  align-content: center;
+  /* 同行内标签彼此垂直居中 */
+  align-items: center;
+}
+
+.tag-item {
+  font-size: 22rpx;
+  color: #ff5000;
+  background: rgba(255, 77, 0, 0.1);
+  border-radius: 6rpx;
+  /* 标签固定高度，文字在胶囊内精确垂直居中，避免偏上/偏下 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 44rpx;
+  padding: 0 16rpx;
+  margin-right: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+/* 元信息 */
+.meta-section {
+  background: #fff;
+  padding: 0 24rpx;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.meta-item:last-child {
+  border-bottom: none;
+}
+
+.meta-label {
+  font-size: 26rpx;
+  color: #999;
+  width: 100rpx;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  font-size: 26rpx;
+  color: #333;
+}
+
+/* 商品详情图 */
+.detail-images {
+  margin-top: 12rpx;
+}
+
+.detail-img {
+  width: 100%;
+  display: block;
+  background: #f8f8f8;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  padding: 16rpx 24rpx;
+  padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.bottom-rebate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.bottom-rebate-label {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.bottom-rebate-value {
+  font-size: 32rpx;
+  color: #ff5000;
+  font-weight: 700;
+}
+
+.buy-btn {
+  flex: 1;
+  height: 84rpx;
+  line-height: 84rpx;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #ff4d00, #ff9402);
+  border: none;
+  box-sizing: border-box;
+  border-radius: 42rpx;
+  box-shadow: 0 6rpx 16rpx rgba(255, 77, 0, 0.25);
+  padding: 0;
+}
+
+.buy-btn::after {
+  border: none;
+}
+
+/* 手机号登录弹窗 */
+.login-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.login-dialog {
+  position: relative;
+  width: 560rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 60rpx 48rpx 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: dialogPopIn 0.25s ease-out;
+}
+
+@keyframes dialogPopIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.login-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.login-desc {
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 48rpx;
+}
+
+.login-phone-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #ff4d00, #ff9402);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: bold;
+  border: none;
+  box-sizing: border-box;
+  border-radius: 44rpx;
+  box-shadow: 0 8rpx 20rpx rgba(255, 77, 0, 0.25);
+  padding: 0;
+}
+
+.login-phone-btn::after {
+  border: none;
+}
+
+.login-skip {
+  margin-top: 32rpx;
+  font-size: 26rpx;
+  color: #bbb;
+  padding: 8rpx 16rpx;
+}

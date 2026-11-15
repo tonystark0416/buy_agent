@@ -1,0 +1,1121 @@
+/**
+ * API 服务层
+ * 优先调用真实接口，失败/无数据时 fallback 到 mock
+ */
+
+// 接口 Host 统一由 utils/config.js 按环境下发（开发→本地，线上→正式域名）
+const { BASE_URL } = require('./config');
+
+// 调试开关：true=仅mock false=优先真实接口
+const MOCK_ONLY = false;
+
+const PLATFORM_NAMES = {
+  vip: '唯品会',
+  taobao: '淘宝',
+  jd: '京东',
+  pdd: '拼多多',
+  douyin: '抖音',
+};
+
+// 用户标识，登录成功后通过 setUserConfig 设置真实 uid
+let USER_CONFIG = {
+  uid: '',
+  pid: 'mike0416',
+  openid: 'default_openid',
+};
+
+/**
+ * 设置用户配置（登录后调用）
+ * @param {Object} config - { uid, pid }
+ */
+function setUserConfig(config) {
+  USER_CONFIG = { ...USER_CONFIG, ...config };
+}
+
+// ==================== 真实接口适配层 ====================
+
+/**
+ * 将真实接口的商品数据映射为内部统一结构
+ * 
+ * 真实字段 → 内部字段：
+ *   imageUrl   → image    (商品主图)
+ *   commission → rebate   (返利金额)
+ *   items      → list     (商品列表)
+ *   success    → code     (状态码)
+ */
+function mapProduct(item) {
+  const price = parseFloat(item.price) || 0;
+  const commission = parseFloat(item.commission) || 0;
+
+  return {
+    id: item.id || '',
+    title: item.title || '',
+    image: item.imageUrl || '',
+    price: price,
+    // 真实接口无原价，按返利比例反推
+    originalPrice: commission > 0 ? +(price + commission).toFixed(2) : price,
+    rebate: commission,
+    platform: item.platform || 'vip',
+    sales: item.sales || 0,
+    couponAmount: item.couponAmount || 0,
+  };
+}
+
+/**
+ * 适配真实接口响应 → 统一内部格式
+ */
+function adaptResponse(rawData) {
+  if (!rawData || !rawData.success) {
+    return null;
+  }
+
+  const d = rawData.data || {};
+  const items = d.items || [];
+  const list = items.map(mapProduct);
+
+  return {
+    code: 0,
+    data: {
+      list: list,
+      total: list.length,
+      // 当页有数据就认为还有下一页（接口 pageSize 固定 10，空页 = 到底）
+      hasMore: list.length > 0,
+    },
+  };
+}
+
+// ==================== 网络请求 ====================
+
+/**
+ * 解析响应数据：wx.request 默认 "json" 模式，
+ * 但当后端 Content-Type 不规范时 res.data 可能是字符串，需要兜底解析
+ */
+function parseResponseData(data) {
+  if (typeof data === 'string') {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.warn('[API] JSON 解析失败，保留原始字符串');
+      return data;
+    }
+  }
+  return data;
+}
+
+/**
+ * 发起 GET 请求
+ */
+function request(url) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url,
+      method: 'GET',
+      timeout: 5000,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          resolve(parseResponseData(res.data));
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`));
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      },
+    });
+  });
+}
+
+/**
+ * 发起 POST 请求
+ */
+function postRequest(url, data) {
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url,
+      method: 'POST',
+      data,
+      header: { 'Content-Type': 'application/json' },
+      timeout: 5000,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          resolve(parseResponseData(res.data));
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`));
+        }
+      },
+      fail: (err) => {
+        reject(err);
+      },
+    });
+  });
+}
+
+// ==================== Mock 数据 ====================
+
+const MOCK_IMAGES = [
+  'https://img.alicdn.com/bao/uploaded/i3/2207658164719/O1CN01cFvEyT1oIAyQPKFwl_!!2207658164719.jpg',
+  'https://img.alicdn.com/bao/uploaded/i4/2207658164719/O1CN01f0qxjC1oIAyRnLBSx_!!2207658164719.jpg',
+  'https://img.alicdn.com/bao/uploaded/i1/2207658164719/O1CN01KtDnPq1oIAyOFELpp_!!2207658164719.jpg',
+  'https://img.alicdn.com/bao/uploaded/i2/2207658164719/O1CN01l5QvPr1oIAyQPKY0p_!!2207658164719.jpg',
+];
+
+const ADJECTIVES = ['新款', '春季', '爆款', '热卖', '品质', '高端', '超值', '限时'];
+const PRODUCTS = ['连衣裙', '运动鞋', '手机壳', '蓝牙耳机', 'T恤', '背包', '护肤品', '零食大礼包', '家纺四件套', '充电宝'];
+
+function generateMockProducts(keyword, platform, count) {
+  const list = [];
+  const platforms = platform === 'all'
+    ? ['taobao', 'jd', 'pdd', 'douyin', 'vip']
+    : [platform];
+
+  for (let i = 0; i < count; i++) {
+    const p = platforms[i % platforms.length];
+    const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+    const prod = PRODUCTS[Math.floor(Math.random() * PRODUCTS.length)];
+    const originalPrice = Math.floor(Math.random() * 30000 + 3000) / 100;
+    const price = Math.floor(originalPrice * (Math.random() * 0.4 + 0.35) * 100) / 100;
+    const rebateRate = Math.random() * 0.15 + 0.02;
+
+    list.push({
+      id: `mock_${Date.now()}_${i}`,
+      title: keyword ? `${adj}${keyword}${prod}` : `${adj}${prod} 品质保证`,
+      image: MOCK_IMAGES[i % MOCK_IMAGES.length],
+      price: price,
+      originalPrice: originalPrice,
+      rebate: Math.floor(price * rebateRate * 100) / 100,
+      platform: p,
+      sales: Math.floor(Math.random() * 50000 + 100),
+      couponAmount: Math.floor(originalPrice - price),
+    });
+  }
+
+  return list;
+}
+
+function mockSearch({ keyword, platform, page, pageSize }) {
+  return new Promise((resolve) => {
+    const delay = 300 + Math.random() * 500;
+    const TOTAL_MOCK = 83;
+    const totalPages = Math.ceil(TOTAL_MOCK / pageSize);
+    const isLastPage = page >= totalPages;
+    const count = isLastPage ? TOTAL_MOCK - (page - 1) * pageSize : pageSize;
+
+    setTimeout(() => {
+      resolve({
+        code: 0,
+        data: {
+          list: generateMockProducts(keyword, platform, count),
+          total: TOTAL_MOCK,
+          hasMore: !isLastPage,
+        },
+      });
+    }, delay);
+  });
+}
+
+// ==================== 公开接口 ====================
+
+/**
+ * 搜索商品
+ * 
+ * 真实接口 (GET): {BASE_URL}/api/search
+ * 请求参数 (query):
+ *   - keyword  {string}  搜索关键词
+ *   - uid      {string}  用户标识
+ *   - pid      {string}  项目标识
+ *   - page     {number}  页码，从1开始
+ * 
+ * 内部统一返回格式:
+ *   { code: 0, data: { list: Product[], total: number, hasMore: boolean } }
+ * 
+ * @param {Object} params
+ * @param {string} params.keyword   - 搜索关键词
+ * @param {string} params.platform  - 平台筛选: 'all' | 'vip' | 'taobao' | 'jd' | 'pdd' | 'douyin'
+ * @param {number} params.page      - 页码，从1开始
+ * @param {number} params.pageSize  - 每页条数，默认20
+ */
+async function searchProducts({ keyword = '', platform = 'all', page = 1, pageSize = 20 }) {
+  if (MOCK_ONLY) {
+    return mockSearch({ keyword, platform, page, pageSize });
+  }
+
+  try {
+    const query = [
+      `keyword=${encodeURIComponent(keyword)}`,
+      `uid=${USER_CONFIG.uid}`,
+      `pid=${USER_CONFIG.pid}`,
+      `page=${page}`,
+    ].join('&');
+
+    const rawData = await request(`${BASE_URL}/api/search?${query}`);
+    const result = adaptResponse(rawData);
+
+    if (result) {
+      return result;
+    }
+
+    console.warn('[API] 真实接口返回空数据，使用 mock 兜底');
+    return mockSearch({ keyword, platform, page, pageSize });
+  } catch (err) {
+    console.warn('[API] 真实接口调用失败，使用 mock 兜底:', err.message);
+    return mockSearch({ keyword, platform, page, pageSize });
+  }
+}
+
+// ==================== 商品详情 ====================
+
+/**
+ * 适配真实商品详情接口 → 内部统一格式
+ *
+ * 新接口返回结构:
+ *   { result: true, data: {
+ *       platform, goodsId, goodsName,
+ *       images: [], detailImages: [],
+ *       prices: { marketPrice, salePrice },
+ *       commission: { rate, amount },
+ *       tags: []
+ *   } }
+ */
+function adaptGoodsDetail(rawData) {
+  if (!rawData || rawData.result !== true) return null;
+
+  const d = rawData.data || {};
+  const prices = d.prices || {};
+  const commission = d.commission || {};
+  const images = Array.isArray(d.images) ? d.images.filter(Boolean) : [];
+  const detailImages = Array.isArray(d.detailImages) ? d.detailImages.filter(Boolean) : [];
+
+  const salePrice = parseFloat(prices.salePrice) || 0;
+  const marketPrice = parseFloat(prices.marketPrice) || 0;
+
+  return {
+    code: 0,
+    data: {
+      id: d.goodsId || '',
+      title: d.goodsName || '',
+      shortTitle: d.goodsName || '',
+      image: images[0] || '',
+      images: images,
+      detailImages: detailImages,
+      price: salePrice,
+      originalPrice: marketPrice,
+      rebate: parseFloat(commission.amount) || 0,
+      rebateRate: parseFloat(commission.rate) || 0,
+      discount: marketPrice > 0 ? +(salePrice / marketPrice).toFixed(2) : 0,
+      brandName: d.brandName || '',
+      brandLogo: '',
+      storeName: '',
+      sales: '',
+      tags: Array.isArray(d.tags) ? d.tags : [],
+      categoryName: '',
+      destUrl: d.url || '', // 转链用的商品 URL
+      priceDesc: prices.priceDesc || '', // 价格计算方式文案
+      platform: d.platform || 'vip',
+    },
+  };
+}
+
+/**
+ * Mock 商品详情
+ */
+function mockGoodsDetail(goodsId) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        code: 0,
+        data: {
+          id: goodsId,
+          title: '商品详情示例 - ' + goodsId.slice(-6),
+          shortTitle: '示例商品',
+          image: 'https://a.vpimg4.com/upload/merchandise/pdcvis/667296/2026/0409/170/74a66dfe-a895-4e99-85a9-4cdbaf9fc6c4.jpg',
+          images: ['https://a.vpimg4.com/upload/merchandise/pdcvis/667296/2026/0409/170/74a66dfe-a895-4e99-85a9-4cdbaf9fc6c4.jpg'],
+          detailImages: [],
+          price: 69.00,
+          originalPrice: 139.00,
+          priceDesc: '¥139-优惠 ¥70',
+          rebate: 2.07,
+          rebateRate: 3,
+          discount: 0.5,
+          brandName: '示例品牌',
+          brandLogo: '',
+          storeName: '示例店铺',
+          sales: '5000+',
+          tags: ['春季', '热卖'],
+          categoryName: '运动户外',
+          destUrl: '',
+          platform: 'vip',
+        },
+      });
+    }, 300);
+  });
+}
+
+/**
+ * 获取商品详情
+ *
+ * 真实接口 (GET): {BASE_URL}/api/goods/getDetail
+ * 请求参数 (query):
+ *   - goodsId  {string}  商品ID
+ *   - pid      {string}  推广位 ID
+ *   - uid      {string}  当前用户 uid
+ *   - platform {string}  平台，如 vip
+ *
+ * @param {string} goodsId - 商品ID
+ * @param {string} [platform='vip'] - 平台标识
+ * @returns {Promise<{code: number, data: Object}>}
+ */
+async function getProductDetail(goodsId, platform = 'vip') {
+  if (!goodsId) {
+    return { code: -1, message: '缺少 goodsId' };
+  }
+
+  if (MOCK_ONLY) {
+    return mockGoodsDetail(goodsId);
+  }
+
+  try {
+    const query = [
+      `goodsId=${encodeURIComponent(goodsId)}`,
+      `pid=${encodeURIComponent(USER_CONFIG.pid || '')}`,
+      `uid=${encodeURIComponent(USER_CONFIG.uid || '')}`,
+      `platform=${encodeURIComponent(platform)}`,
+    ].join('&');
+
+    const fullUrl = `${BASE_URL}/api/goods/getDetail?${query}`;
+    console.log('[API] getProductDetail 请求:', fullUrl);
+
+    const rawData = await request(fullUrl);
+    console.log('[API] getProductDetail 响应:');
+    console.log(rawData);
+    const result = adaptGoodsDetail(rawData);
+
+    if (result) return result;
+
+    console.warn('[API] 商品详情返回空，使用 mock 兜底');
+    return mockGoodsDetail(goodsId);
+  } catch (err) {
+    console.warn('[API] 商品详情接口失败，使用 mock 兜底:', err.message);
+    return mockGoodsDetail(goodsId);
+  }
+}
+
+// ==================== 用户登录 ====================
+
+/**
+ * 通过 openid 登录
+ * POST {BASE_URL}/api/user/loginByOpenid
+ * @param {string} openid - 用户 openid
+ * @returns {Promise<Object>}
+ */
+async function loginByOpenid(openid) {
+  if (!openid) {
+    return { success: false, message: '缺少 openid' };
+  }
+
+  try {
+    const result = await postRequest(`${BASE_URL}/api/user/loginByOpenid`, { openid });
+    console.log('[API] loginByOpenid 响应:');
+    console.log(result);
+    return result;
+  } catch (err) {
+    console.error('[API] 登录请求失败:', err.message);
+    return { success: false, message: err.message };
+  }
+}
+
+// ==================== 第三方授权 ====================
+
+/**
+ * 校验第三方平台是否已授权
+ * GET /api/thirdAuth/checkAuth?uid=xxx&platform=xxx（pid 不下发，由后端处理）
+ * @param {string} uid - 用户标识
+ * @param {string} platform - 平台标识（vip / pdd）
+ */
+async function checkAuth(uid, platform) {
+  try {
+    const query = [
+      `uid=${uid || ''}`,
+      platform ? `platform=${platform}` : '',
+    ].filter(Boolean).join('&');
+    const fullRes = await new Promise((resolve, reject) => {
+      wx.request({
+        url: `${BASE_URL}/api/thirdAuth/checkAuth?${query}`,
+        method: 'GET',
+        timeout: 5000,
+        success: resolve,
+        fail: reject,
+      });
+    });
+    console.log('[API] checkAuth data:', fullRes.data);
+    return fullRes.data;
+  } catch (err) {
+    console.error('[API] checkAuth 失败:', err.message);
+    return { isAuth: false };
+  }
+}
+
+/**
+ * 生成第三方平台授权链接
+ * GET /api/thirdAuth/genAuthUrl?uid=xxx&platform=xxx（pid 不下发，由后端处理）
+ * @param {string} uid - 用户标识
+ * @param {string} platform - 平台标识（vip / pdd）
+ */
+async function genAuthUrl(uid, platform) {
+  try {
+    const query = [
+      `uid=${uid || ''}`,
+      platform ? `platform=${platform}` : '',
+    ].filter(Boolean).join('&');
+    const result = await request(`${BASE_URL}/api/thirdAuth/genAuthUrl?${query}`);
+    console.log('[API] genAuthUrl 响应:');
+    console.log(result);
+    return result;
+  } catch (err) {
+    console.error('[API] genAuthUrl 失败:', err.message);
+    return null;
+  }
+}
+
+// ==================== 链接转换 ====================
+
+// 唯品会商品推广位 ID（genUrlByGoodsId 默认使用）
+const GOODS_GEN_URL_PID = '123213';
+
+/**
+ * 识别链接所属平台
+ * @param {string} url - 原始链接
+ * @returns {string} 平台标识
+ */
+function detectPlatform(url) {
+  if (!url) return '';
+  const u = url.toLowerCase();
+  if (u.includes('yangkeduo.com') || u.includes('pinduoduo.com')) return 'pdd';
+  if (u.includes('taobao.com') || u.includes('tmall.com')) return 'taobao';
+  if (u.includes('jd.com')) return 'jd';
+  if (u.includes('vip.com')) return 'vip';
+  return '';
+}
+
+/**
+ * 链接转换：将电商商品链接转为 CPS 推广链接
+ *
+ * 接口: GET {BASE_URL}/api/tranUrl（pid 不下发，由后端处理）
+ * 参数:
+ *   - uid        {string} 当前用户 uid
+ *   - source_url {string} 用户输入的原始链接
+ *
+ * 返回状态（按 code 判断）:
+ *   成功:   { code: 200, urls: { h5_url, weapp_url, weapp_short_link, deeplink_url } }
+ *   未授权: { code: -1, needAuthPlatform: 'vip'|'pdd', message } —— 由页面弹对应平台授权提示窗
+ *   不支持: { code: -2, message: '不支持的平台' }
+ *
+ * @param {string} url - 原始电商链接
+ * @param {string} uid - 当前用户 uid
+ */
+async function convertLink(url, uid) {
+  // 校验链接
+  if (!url || !url.trim()) {
+    return { code: -1, message: '请输入商品链接' };
+  }
+
+  // 校验 uid
+  if (!uid) {
+    return { code: -1, message: '请先登录' };
+  }
+
+  try {
+    const query = [
+      `uid=${encodeURIComponent(uid)}`,
+      `source_url=${encodeURIComponent(url.trim())}`,
+    ].join('&');
+
+    const fullUrl = `${BASE_URL}/api/tranUrl?${query}`;
+    console.log('[API] convertLink 请求:', fullUrl);
+
+    const result = await request(fullUrl);
+    console.log('[API] convertLink 原始响应类型:', typeof result);
+    console.log('[API] convertLink 响应:');
+    console.log(result);
+
+    if (!result) {
+      return { code: -3, message: '网络异常，请重试' };
+    }
+
+    const resCode = result.code;
+    console.log('[API] convertLink resCode:', resCode, 'hasUrls:', !!result.urls, 'hasH5:', !!(result.urls && result.urls.h5_url));
+
+    // 成功
+    if (resCode === 200 && result.urls && result.urls.h5_url) {
+      return {
+        code: 0,
+        data: {
+          originalUrl: url.trim(),
+          // 平台标识（前端 detectPlatform 识别），供页面跳转小程序时兜底 appId
+          platform: detectPlatform(url),
+          h5_url: result.urls.h5_url,
+          weapp_url: result.urls.weapp_url || '',
+          weapp_short_link: result.urls.weapp_short_link || '',
+          deeplink_url: result.urls.deeplink_url || '',
+        },
+      };
+    }
+
+    // 用户未授权该链接对应平台：接口返回 { code: -1, needAuthPlatform: 'vip'|'pdd', message }
+    // 透传给页面层，由页面弹对应平台的授权提示窗引导用户去授权
+    if (resCode === -1 && result.needAuthPlatform) {
+      return {
+        code: -1,
+        needAuthPlatform: result.needAuthPlatform,
+        message: result.message || '用户未授权',
+      };
+    }
+
+    // 不支持的平台链接
+    if (resCode === -2) {
+      return { code: -2, message: result.message || '暂不支持该平台的链接' };
+    }
+
+    // 转换失败
+    return { code: -3, message: '链接转换失败，请检查链接是否有效' };
+  } catch (err) {
+    console.warn('[API] convertLink 失败:', err.message);
+    return { code: -3, message: '网络异常，请重试' };
+  }
+}
+
+/**
+ * 获取商品推广链接（按商品 ID，商品详情页「前往购买」/ 首页多多好货卡片用）
+ * GET /api/tranUrl/genUrlByGoodsId?platform=vip&goodsId=xxx&uid=xxx&pid=xxx
+ * pdd 平台不下发 pid（由后端处理）：GET /api/tranUrl/genUrlByGoodsId?platform=pdd&goodsId=xxx&uid=xxx
+ *
+ * 成功返回: { result: true, goodsId, urls: { h5_url, weapp_url, weapp_app_id, deeplink_url, command } }
+ *
+ * @param {Object} opts
+ * @param {string} opts.goodsId  - 商品 ID
+ * @param {string} [opts.platform='vip'] - 平台标识（vip / pdd）
+ * @param {string} [opts.uid]    - 当前用户 uid（默认取 USER_CONFIG.uid）
+ * @param {string} [opts.pid]    - 推广位 ID（vip 默认 GOODS_GEN_URL_PID；pdd 不下发）
+ * @returns {Promise<Object|null>} 原始响应，失败返回 null
+ */
+async function getGoodsTranUrlByGoodsId({ goodsId, platform = 'vip', uid = USER_CONFIG.uid, pid }) {
+  if (!goodsId || !uid) return null;
+  // pid 仅 vip 平台默认下发；其他平台（pdd 等）由后端处理，不传
+  if (platform === 'vip' && !pid) pid = GOODS_GEN_URL_PID;
+
+  try {
+    const query = [
+      `platform=${encodeURIComponent(platform)}`,
+      `goodsId=${encodeURIComponent(goodsId)}`,
+      `uid=${encodeURIComponent(uid)}`,
+      pid ? `pid=${encodeURIComponent(pid)}` : '',
+    ].filter(Boolean).join('&');
+
+    const url = `${BASE_URL}/api/tranUrl/genUrlByGoodsId?${query}`;
+    console.log('[API] getGoodsTranUrlByGoodsId 请求:', url);
+    const result = await request(url);
+    console.log('[API] getGoodsTranUrlByGoodsId 响应:');
+    console.log(result);
+    return result;
+  } catch (err) {
+    console.warn('[API] getGoodsTranUrlByGoodsId 失败:', err.message);
+    return null;
+  }
+}
+
+// ==================== 吃喝玩乐 Banner ====================
+
+/**
+ * 获取吃喝玩乐 Banner 活动列表
+ * GET /api/banner
+ * @returns {Promise<Array>} banner 列表 [{ id, extra_id, title, sub_text, banner_img_url, sort }]
+ */
+async function getBanners() {
+  try {
+    const result = await request(`${BASE_URL}/api/banner`);
+    console.log('[API] getBanners 响应:');
+    console.log(result);
+    if (Array.isArray(result)) {
+      return result.sort((a, b) => (b.sort || 0) - (a.sort || 0));
+    }
+    return [];
+  } catch (err) {
+    console.warn('[API] getBanners 失败:', err.message);
+    return [];
+  }
+}
+
+/**
+ * 获取首页「最优惠活动」坑位列表
+ * GET /api/banner/indexBannerList
+ * 返回字段：{ id, type, title, sub_text, banner_img_url, extra_id, extra_url, sort }
+ * @returns {Promise<Array>} 已按 sort 降序的数组；接口异常或结构异常返回 []
+ */
+async function getIndexActivityBanners() {
+  try {
+    const result = await request(`${BASE_URL}/api/banner/indexBannerList`);
+    console.log('[API] getIndexActivityBanners 响应:');
+    console.log(result);
+    const arr = Array.isArray(result) ? result : result && Array.isArray(result.data) ? result.data : [];
+    return arr.slice().sort((a, b) => (b.sort || 0) - (a.sort || 0));
+  } catch (err) {
+    console.warn('[API] getIndexActivityBanners 失败:', err.message);
+    return [];
+  }
+}
+
+/**
+ * 获取美团活动转链（referralLinkMap 中 key=4 为小程序路径）
+ * GET /api/meituan/referral-link-by-act-id?actId=xxx&uid=xxx
+ * @param {string|number} actId - 活动 ID（banner 的 extra_id）
+ * @returns {Promise<Object|null>} 转链结果
+ */
+async function getMeituanReferralLink(actId) {
+  try {
+    const url = `${BASE_URL}/api/meituan/referral-link-by-act-id?actId=${encodeURIComponent(actId)}&uid=${encodeURIComponent(USER_CONFIG.uid)}`;
+    console.log('[API] getMeituanReferralLink 请求:', url);
+    const result = await request(url);
+    console.log('[API] getMeituanReferralLink 响应:');
+    console.log(result);
+    return result;
+  } catch (err) {
+    console.warn('[API] getMeituanReferralLink 失败:', err.message);
+    return null;
+  }
+}
+
+/**
+ * 获取美团商品推广链接（referralLinkMap 中 key=4 为小程序路径）
+ * GET /api/meituan/referral-link-by-goods-id?productViewSign=xxx
+ * @param {string} productViewSign - 商品推广标识（搜索列表项的 productViewSign 字段）
+ * @returns {Promise<Object|null>} 转链结果
+ */
+async function getMeituanGoodsReferralLink(productViewSign) {
+  try {
+    const url = `${BASE_URL}/api/meituan/referral-link-by-goods-id?productViewSign=${encodeURIComponent(productViewSign)}`;
+    const result = await request(url);
+    console.log('[API] getMeituanGoodsReferralLink 响应:');
+    console.log(result);
+    return result;
+  } catch (err) {
+    console.warn('[API] getMeituanGoodsReferralLink 失败:', err.message);
+    return null;
+  }
+}
+
+// ==================== 美团商品详情 ====================
+
+/**
+ * 格式化配送距离文案（米 → "15.9km" / "580m"）
+ */
+function formatMeituanDistance(dist) {
+  const n = parseFloat(dist);
+  if (!n || isNaN(n)) return '';
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}km`;
+  return `${Math.round(n)}m`;
+}
+
+/**
+ * 格式化团购券有效期文案
+ * couponValidTimeType: 1=购买后 N 天内有效，其余按起止时间展示
+ */
+function formatMeituanValidTime(info) {
+  if (!info) return '';
+  const pad = (n) => (n < 10 ? '0' + n : String(n));
+  const fmt = (ts) => {
+    const d = new Date(ts * 1000);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+  if (info.couponValidTimeType === 1) {
+    const day = Number(info.couponValidDay) || 0;
+    return day > 0 ? `购买后${day}天内有效` : '';
+  }
+  if (info.couponValidSTime && info.couponValidETime) {
+    return `${fmt(info.couponValidSTime)} 至 ${fmt(info.couponValidETime)} 有效`;
+  }
+  return '';
+}
+
+/**
+ * 将美团详情接口的商品字段映射为内部统一结构（详情页展示用）
+ *
+ * couponPackDetail / brandInfo / commissionInfo / deliverablePoiInfo /
+ * availablePoiInfo / couponValidTimeInfo → 扁平化展示字段
+ */
+function mapMeituanGoodsDetail(item) {
+  const coupon = item.couponPackDetail || {};
+  const brand = item.brandInfo || {};
+  const commission = item.commissionInfo || {};
+  const poi = item.deliverablePoiInfo || {};
+  const availablePoi = item.availablePoiInfo || {};
+  const validInfo = item.couponValidTimeInfo || {};
+  const pricePowerLabel = (coupon.productLabel && coupon.productLabel.pricePowerLabel) || {};
+
+  return {
+    skuViewId: coupon.skuViewId || '',
+    productViewSign: coupon.productViewSign || '',
+    title: coupon.name || '',
+    image: coupon.headUrl || '',
+    price: coupon.sellPrice || '',
+    originalPrice: coupon.originalPrice || '',
+    sales: coupon.saleVolume || '',
+    couponNum: coupon.couponNum || 0,
+    historyPriceLabel: pricePowerLabel.historyPriceLabel || '',
+    brandName: brand.brandName || '',
+    rebate: commission.commission || '',
+    rebatePercent: commission.commissionPercent || '',
+    poiName: poi.poiName || '',
+    poiLogoUrl: poi.poiLogoUrl || '',
+    distance: formatMeituanDistance(poi.deliveryDistance),
+    availablePoiNum: Number(availablePoi.availablePoiNum) || 0,
+    availablePoiCityNum: Number(availablePoi.availablePoiCityNum) || 0,
+    validTimeText: formatMeituanValidTime(validInfo),
+  };
+}
+
+/**
+ * 获取美团商品详情
+ *
+ * 接口: GET ${BASE_URL}/api/meituan/goodsDetail?productViewSignList=xxx
+ * 入参 productViewSignList 为列表项透出的商品推广标识（作为商品 id）
+ * 成功返回: { success: true, data: { code: 0, message, data: [商品...] } }，取首个商品
+ *
+ * @param {string} productViewSign - 商品推广标识
+ * @returns {Promise<Object|null>} 映射后的商品详情，失败返回 null
+ */
+async function getMeituanGoodsDetail(productViewSign) {
+  try {
+    const url = `${BASE_URL}/api/meituan/goodsDetail?productViewSignList=${encodeURIComponent(productViewSign)}`;
+    console.log('[API] getMeituanGoodsDetail 请求:', url);
+    const result = await request(url);
+    console.log('[API] getMeituanGoodsDetail 响应:');
+    console.log(result);
+
+    if (!result || !result.success || !result.data || result.data.code !== 0) {
+      console.warn('[API] getMeituanGoodsDetail 返回异常:', result);
+      return null;
+    }
+
+    const rawList = Array.isArray(result.data.data) ? result.data.data : [];
+    const item = rawList[0];
+    if (!item) {
+      console.warn('[API] getMeituanGoodsDetail 商品不存在:', productViewSign);
+      return null;
+    }
+    return mapMeituanGoodsDetail(item);
+  } catch (err) {
+    console.warn('[API] getMeituanGoodsDetail 失败:', err.message);
+    return null;
+  }
+}
+
+// ==================== 吃喝玩乐商品搜索 ====================
+
+/**
+ * 将美团搜索接口的商品字段映射为内部统一结构
+ *
+ * 真实字段 → 内部字段：
+ *   couponPackDetail.name          → title       (商品名)
+ *   couponPackDetail.headUrl       → image       (商品图)
+ *   couponPackDetail.sellPrice     → price       (售价)
+ *   couponPackDetail.originalPrice → originalPrice (原价)
+ *   couponPackDetail.saleVolume    → sales       (销量文案)
+ *   couponPackDetail.categoryName  → category    (分类)
+ *   couponPackDetail.skuViewId     → skuViewId   (商品标识)
+ *   couponPackDetail.productViewSign → productViewSign (商品推广标识，点击转链用)
+ *   brandInfo.brandName            → brandName   (品牌)
+ *   brandInfo.brandLogoUrl         → brandLogo   (品牌logo)
+ *   commissionInfo.commission      → rebate      (佣金)
+ *   commissionInfo.commissionPercent → rebatePercent (佣金比例)
+ *   deliverablePoiInfo.poiName     → poiName     (门店名)
+ *   deliverablePoiInfo.deliveryDistance → distance (配送距离)
+ */
+function mapMeituanGoods(item) {
+  const coupon = item.couponPackDetail || {};
+  const brand = item.brandInfo || {};
+  const commission = item.commissionInfo || {};
+  const poi = item.deliverablePoiInfo || {};
+
+  return {
+    skuViewId: coupon.skuViewId || '',
+    productViewSign: coupon.productViewSign || '',
+    title: coupon.name || '',
+    image: coupon.headUrl || '',
+    price: coupon.sellPrice || '',
+    originalPrice: coupon.originalPrice || '',
+    sales: coupon.saleVolume || '',
+    category: coupon.categoryName || '',
+    brandName: brand.brandName || '',
+    brandLogo: brand.brandLogoUrl || '',
+    rebate: commission.commission || '',
+    rebatePercent: commission.commissionPercent || '',
+    poiName: poi.poiName || '',
+    distance: poi.deliveryDistance || '',
+  };
+}
+
+/**
+ * 搜索美团吃喝玩乐商品
+ *
+ * 接口: GET ${BASE_URL}/api/meituan/goods
+ * 请求参数 (query):
+ *   - searchText  {string}  搜索关键词
+ *   - longitude   {string}  经度（可为空）
+ *   - latitude    {string}  纬度（可为空）
+ *   - pageSize    {number}  每页条数，默认20
+ *   - pageNo      {number}  页码，从1开始
+ *   - searchId    {string}  分页标识，翻页时回传上一页返回的 searchId
+ *   - sortField   {number}  排序方式：1=综合排序，2=价格升序，6=离我最近（默认1）
+ *
+ * 成功返回: { success: true, data: { code: 0, message, data: [商品...], hasNext, searchId } }
+ *
+ * @param {Object} params
+ * @param {string} params.searchText - 搜索关键词
+ * @param {string} [params.longitude=''] - 经度
+ * @param {string} [params.latitude=''] - 纬度
+ * @param {number} [params.pageNo=1] - 页码，从1开始
+ * @param {number} [params.pageSize=20] - 每页条数
+ * @param {string} [params.searchId=''] - 分页标识
+ * @param {number} [params.sortField=1] - 排序方式：1综合、2价格升序、6离我最近
+ * @returns {Promise<{list: Array, hasNext: boolean, searchId: string}>}
+ */
+async function searchMeituanGoods({ searchText = '', longitude = '', latitude = '', pageNo = 1, pageSize = 20, searchId = '', sortField = 1 } = {}) {
+  try {
+    const query = [
+      `searchText=${encodeURIComponent(searchText)}`,
+      `longitude=${encodeURIComponent(longitude)}`,
+      `latitude=${encodeURIComponent(latitude)}`,
+      `pageSize=${pageSize}`,
+      `pageNo=${pageNo}`,
+      `searchId=${encodeURIComponent(searchId)}`,
+      `sortField=${sortField}`,
+    ].join('&');
+
+    const url = `${BASE_URL}/api/meituan/goods?${query}`;
+    console.log('[API] searchMeituanGoods 请求URL:', url);
+    const result = await request(url);
+    console.log('[API] searchMeituanGoods 响应:');
+    console.log(result);
+
+    if (!result || !result.success || !result.data || result.data.code !== 0) {
+      console.warn('[API] searchMeituanGoods 返回异常:', result);
+      return { list: [], hasNext: false, searchId: '' };
+    }
+
+    const d = result.data;
+    const rawList = Array.isArray(d.data) ? d.data : [];
+    const list = rawList.map(mapMeituanGoods);
+
+    return {
+      list,
+      hasNext: !!d.hasNext,
+      searchId: d.searchId || '',
+    };
+  } catch (err) {
+    console.warn('[API] searchMeituanGoods 失败:', err.message);
+    return { list: [], hasNext: false, searchId: '' };
+  }
+}
+
+// ==================== 首页聚合列表 /api/indexList ====================
+
+/**
+ * 首页聚合列表服务
+ * 「唯品好货」与「美团热销」共用该接口，通过 tab 区分
+ * 接口 Host 统一走 utils/config.js 下发的 BASE_URL
+ */
+
+/**
+ * 组装 GET query 串（跳过 undefined/null/''）
+ */
+function buildQuery(params) {
+  return Object.keys(params || {})
+    .filter((key) => params[key] !== undefined && params[key] !== null && params[key] !== '')
+    .map((key) => `${key}=${encodeURIComponent(params[key])}`)
+    .join('&');
+}
+
+/**
+ * 首页 - 唯品好货（tab=1），offset 分页
+ * GET {base}/api/indexList?tab=1&uid=xxx&offset=0&pageSize=10
+ * 返回 { returnCode:'0', result:{ goodsInfoList, nextPageOffset, lastPage } }
+ * 说明：jxCode 等平台筛选参数已下沉到后端按 tab 判断，前端不再下发
+ *
+ * @param {Object} params
+ * @param {string} [params.uid=USER_CONFIG.uid] - 当前用户 uid（未登录时为空，不下发该参数）
+ * @param {number} [params.offset=0] - 偏移量
+ * @param {number} [params.pageSize=10] - 每页条数
+ * @returns {Promise<{list: Array, hasMore: boolean, nextOffset: number}>}
+ */
+async function fetchVipIndexGoods({ uid = USER_CONFIG.uid, offset = 0, pageSize = 10 } = {}) {
+  try {
+    const url = `${BASE_URL}/api/indexList?${buildQuery({ tab: 1, uid, offset, pageSize })}`;
+    console.log('[API] fetchVipIndexGoods 请求URL:', url);
+    const result = await request(url);
+
+    const r = result && result.returnCode === '0' && result.result ? result.result : null;
+    if (!r || !Array.isArray(r.goodsInfoList)) {
+      console.warn('[API] fetchVipIndexGoods 返回异常:', result);
+      return { list: [], hasMore: false, nextOffset: offset };
+    }
+
+    return {
+      list: r.goodsInfoList,
+      hasMore: !r.lastPage,
+      nextOffset: r.nextPageOffset != null ? r.nextPageOffset : offset + pageSize,
+    };
+  } catch (err) {
+    console.warn('[API] fetchVipIndexGoods 失败:', err.message);
+    return { list: [], hasMore: false, nextOffset: offset };
+  }
+}
+
+/**
+ * 首页 - 美团热销（tab=2），按定位一次返回（暂不分页）
+ * GET {base}/api/indexList?tab=2&longitude=..&latitude=..
+ * 返回 { code:0, data:[{ brandInfo, commissionInfo, couponPackDetail, deliverablePoiInfo, ... }] }
+ * 说明：platform / listTopiId 等平台筛选参数已下沉到后端按 tab 判断，前端不再下发
+ *
+ * @param {Object} params
+ * @param {string} [params.longitude=''] - 经度
+ * @param {string} [params.latitude=''] - 纬度
+ * @returns {Promise<{list: Array}>} list 已按 mapMeituanGoods 映射
+ */
+async function fetchMeituanIndexGoods({ longitude = '', latitude = '' } = {}) {
+  try {
+    const url = `${BASE_URL}/api/indexList?${buildQuery({ tab: 2, longitude, latitude })}`;
+    console.log('[API] fetchMeituanIndexGoods 请求URL:', url);
+    const result = await request(url);
+
+    if (!result || result.code !== 0 || !Array.isArray(result.data)) {
+      console.warn('[API] fetchMeituanIndexGoods 返回异常:', result);
+      return { list: [] };
+    }
+
+    return { list: result.data.map(mapMeituanGoods) };
+  } catch (err) {
+    console.warn('[API] fetchMeituanIndexGoods 失败:', err.message);
+    return { list: [] };
+  }
+}
+
+/**
+ * 首页 - 多多好货（tab=3，拼多多），一次返回（暂不分页）
+ * GET {base}/api/indexList?tab=3
+ * 返回为顶层数组（与 tab=1/2 的包装结构不同）：
+ *   [{ id, goods_name, goods_image_url, market_price, sale_price, platform:'pdd', goods_platform_id, update_time, create_time }]
+ * 说明：返回原始数组，由调用方（首页 formatPddList）映射为展示结构
+ *
+ * @returns {Promise<{list: Array}>} list 为接口原始数组
+ */
+async function fetchPddIndexGoods() {
+  try {
+    const url = `${BASE_URL}/api/indexList?${buildQuery({ tab: 3 })}`;
+    console.log('[API] fetchPddIndexGoods 请求URL:', url);
+    const result = await request(url);
+
+    if (!Array.isArray(result)) {
+      console.warn('[API] fetchPddIndexGoods 返回异常（非数组）:', result);
+      return { list: [] };
+    }
+
+    return { list: result };
+  } catch (err) {
+    console.warn('[API] fetchPddIndexGoods 失败:', err.message);
+    return { list: [] };
+  }
+}
+
+// ==================== 订单列表 ====================
+
+/**
+ * 将订单接口数据映射为页面展示结构
+ * @param {Object} item - 订单原始数据
+ */
+function mapOrder(item) {
+  return {
+    id: item.id || '',
+    orderSn: item.order_sn || '',
+    uid: item.uid || '',
+    status: item.status,
+    platform: item.platform || '',
+    orderAmount: item.order_amount || '0',
+    commission: item.commission || '0',
+    goodsId: item.goods_id || '',
+    goodsName: item.goods_name || '',
+    goodsImgUrl: item.goods_img_url || '',
+    createTime: item.create_time || '',
+    updateTime: item.update_time || '',
+  };
+}
+
+/**
+ * 获取我的订单列表
+ *
+ * 接口: GET ${BASE_URL}/api/order/getList
+ * 请求参数 (query):
+ *   - uid      {string|number} 当前用户 uid
+ *   - page     {number}        页码，从 1 开始
+ *   - platform {string}        平台标识：vip=唯品会，meituan=美团
+ *
+ * 成功返回: { list: [...], page, pageSize, total, totalPages }
+ *
+ * @param {string|number} uid - 当前用户 uid
+ * @param {number} [page=1] - 页码，从 1 开始
+ * @param {string} [platform='vip'] - 平台标识，默认唯品会(vip)
+ * @returns {Promise<{list: Array, page: number, total: number, totalPages: number} | null>}
+ */
+async function getOrderList(uid, page = 1, platform = 'vip') {
+  if (!uid) return null;
+
+  try {
+    const query = [
+      `uid=${encodeURIComponent(uid)}`,
+      `page=${page}`,
+      `platform=${platform}`,
+    ].join('&');
+
+    const url = `${BASE_URL}/api/order/getList?${query}`;
+    console.log('[API] getOrderList 请求URL:', url);
+    const result = await request(url);
+    console.log('[API] getOrderList 响应:');
+    console.log(result);
+
+    if (!result || !Array.isArray(result.list)) {
+      console.warn('[API] getOrderList 返回异常:', result);
+      return { list: [], page: 1, total: 0, totalPages: 0 };
+    }
+
+    return {
+      list: result.list.map(mapOrder),
+      page: parseInt(result.page, 10) || page,
+      total: parseInt(result.total, 10) || 0,
+      totalPages: parseInt(result.totalPages, 10) || 0,
+    };
+  } catch (err) {
+    console.warn('[API] getOrderList 失败:', err.message);
+    return { list: [], page: 1, total: 0, totalPages: 0 };
+  }
+}
+
+module.exports = {
+  searchProducts,
+  getProductDetail,
+  fetchVipIndexGoods,
+  fetchMeituanIndexGoods,
+  fetchPddIndexGoods,
+  loginByOpenid,
+  checkAuth,
+  genAuthUrl,
+  convertLink,
+  getGoodsTranUrlByGoodsId,
+  detectPlatform,
+  getBanners,
+  getIndexActivityBanners,
+  getMeituanReferralLink,
+  getMeituanGoodsReferralLink,
+  getMeituanGoodsDetail,
+  searchMeituanGoods,
+  getOrderList,
+  setUserConfig,
+  PLATFORM_NAMES,
+};

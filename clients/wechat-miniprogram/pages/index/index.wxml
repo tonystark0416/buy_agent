@@ -1,0 +1,256 @@
+<!--index.wxml-->
+<view class="page">
+  <!-- 顶部搜索栏（置顶，为右上角胶囊按钮让位） -->
+  <view class="search-bar" bindtap="goToSearch" style="padding-top: {{navTopPad}}px;">
+    <view class="search-box" style="margin-right: {{capsuleGap}}px;">
+      <text class="search-icon">🔍</text>
+      <text class="search-placeholder">搜索全网好物</text>
+    </view>
+  </view>
+
+  <!-- 顶部渐变延伸：让内容区从橙色氛围中自然过渡，转链卡片悬浮其上 -->
+  <view class="page-hero"></view>
+
+  <!-- 粘贴购物链接 -->
+  <view class="link-section">
+    <view class="link-input-wrap">
+      <textarea
+        class="link-textarea"
+        placeholder="支持粘贴唯品会/拼多多 商品链接查找优惠"
+        placeholder-class="link-placeholder"
+        value="{{linkInput}}"
+        bindinput="onLinkInput"
+        maxlength="-1"
+      />
+      <view class="link-paste-btn" hover-class="link-paste-btn-hover" hover-stay-time="80" bindtap="onPasteLink">粘贴</view>
+    </view>
+    <view class="link-find-btn {{linkConverting ? 'btn-disabled' : ''}}" bindtap="onFindCoupon">
+      {{linkConverting ? '正在转换...' : '查找专属优惠'}}
+    </view>
+  </view>
+
+  <!-- 链接转换结果卡片 -->
+  <view class="link-result-card" wx:if="{{showLinkResult && linkResult}}">
+    <view class="result-header">
+      <text class="result-label-title">转换结果</text>
+      <view class="result-close" bindtap="onClearLinkResult">✕</view>
+    </view>
+    <view class="result-body">
+      <view class="result-section">
+        <text class="result-label">原始链接</text>
+        <text class="result-url-text">{{linkResult.originalUrl}}</text>
+      </view>
+      <view class="result-divider"></view>
+      <block wx:if="{{linkResult.h5_url}}">
+        <view class="result-section">
+          <text class="result-label">H5 推广链接</text>
+          <text class="result-url-text result-url-highlight">{{linkResult.h5_url}}</text>
+        </view>
+      </block>
+    </view>
+    <!-- weapp_url 有值：主按钮跳小程序购买，次按钮复制 H5 链接；否则仅保留复制 -->
+    <block wx:if="{{linkResult.weapp_url}}">
+      <button class="result-copy-btn" bindtap="onJumpWeapp">前往小程序购买</button>
+      <button class="result-jump-btn" bindtap="onCopyLink">一键复制推广链接</button>
+    </block>
+    <button class="result-copy-btn" wx:else bindtap="onCopyLink">一键复制推广链接</button>
+  </view>
+
+  <!-- 今日最优惠活动：数据来自接口；不足两条或接口异常时整区隐藏 -->
+  <view class="activity-section" wx:if="{{activityBanners.length >= 2}}">
+    <view class="activity-grid">
+      <view
+        class="activity-card"
+        wx:for="{{activityBanners}}"
+        wx:key="id"
+        data-item="{{item}}"
+        bindtap="onActivityTap"
+        hover-class="activity-card-hover"
+        hover-stay-time="80"
+      >
+        <!-- 左：商品大图（有图渲染 image，否则占位） -->
+        <view class="activity-image">
+          <image wx:if="{{item.image}}" class="activity-image-img" src="{{item.image}}" mode="aspectFit" />
+          <view wx:else class="activity-image-placeholder">
+            <text>商品图占位</text>
+          </view>
+        </view>
+        <!-- 右：标题/子标题 -->
+        <view class="activity-head-text">
+          <text class="activity-title">{{item.title}}</text>
+          <text class="activity-subtitle">{{item.subtitle}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 精选商品：唯品好货 / 美团热销 / 多多好货 三 tab -->
+  <view class="goods-section">
+    <!-- tab 切换 -->
+    <view class="goods-tabs">
+      <view
+        class="goods-tab {{activeTab === 1 ? 'goods-tab-active' : ''}}"
+        data-tab="1"
+        bindtap="onSwitchTab"
+      >唯品好货</view>
+      <view
+        class="goods-tab {{activeTab === 2 ? 'goods-tab-active' : ''}}"
+        data-tab="2"
+        bindtap="onSwitchTab"
+      >美团热销</view>
+      <view
+        class="goods-tab {{activeTab === 3 ? 'goods-tab-active' : ''}}"
+        data-tab="3"
+        bindtap="onSwitchTab"
+      >多多好货</view>
+    </view>
+
+    <!-- ==================== 唯品好货（tab=1） ==================== -->
+    <block wx:if="{{activeTab === 1}}">
+      <!-- 首次加载中 -->
+      <view class="goods-status" wx:if="{{vipLoading && vipList.length === 0}}">
+        <text>正在加载商品...</text>
+      </view>
+      <!-- 空数据 -->
+      <view class="goods-status" wx:elif="{{vipList.length === 0}}">
+        <text>暂无商品数据</text>
+      </view>
+      <!-- 商品瀑布流 -->
+      <view class="waterfall-grid" wx:else>
+        <view
+          class="goods-card"
+          wx:for="{{vipList}}"
+          wx:key="id"
+          data-item="{{item}}"
+          bindtap="onGoodsTap"
+          hover-class="goods-card-hover"
+          hover-stay-time="80"
+        >
+          <image class="goods-image" src="{{item.image}}" mode="widthFix" lazy-load />
+          <view class="goods-info">
+            <text class="goods-title">{{item.title}}</text>
+            <view class="goods-price-row">
+              <text class="goods-price-flag">券后</text>
+              <text class="goods-price">{{item.priceText}}</text>
+              <text class="goods-original-price" wx:if="{{item.originalPriceText}}">{{item.originalPriceText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <!-- 触底加载中 / 到底 -->
+      <view class="goods-loading" wx:if="{{vipLoading && vipList.length > 0}}">
+        <text>加载中...</text>
+      </view>
+      <view class="goods-end" wx:if="{{!vipHasMore && vipList.length > 0}}">
+        <text>— 已经到底了 —</text>
+      </view>
+    </block>
+
+    <!-- ==================== 美团热销（tab=2） ==================== -->
+    <block wx:elif="{{activeTab === 2}}">
+      <!-- 首次加载中 -->
+      <view class="goods-status" wx:if="{{mtLoading && mtList.length === 0}}">
+        <text>正在加载附近热销...</text>
+      </view>
+      <!-- 空数据 -->
+      <view class="goods-status" wx:elif="{{mtLoaded && mtList.length === 0}}">
+        <text>附近暂无热销好券，去吃喝玩乐看看吧</text>
+      </view>
+      <!-- 商品瀑布流 -->
+      <view class="waterfall-grid" wx:else>
+        <view
+          class="goods-card"
+          wx:for="{{mtList}}"
+          wx:key="id"
+          data-item="{{item}}"
+          bindtap="onGoodsTap"
+          hover-class="goods-card-hover"
+          hover-stay-time="80"
+        >
+          <image class="goods-image" src="{{item.image}}" mode="widthFix" lazy-load />
+          <view class="goods-info">
+            <text class="goods-title">{{item.title}}</text>
+            <text class="goods-subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</text>
+            <view class="goods-price-row">
+              <text class="goods-price-flag">券后</text>
+              <text class="goods-price">{{item.priceText}}</text>
+              <text class="goods-original-price" wx:if="{{item.originalPriceText}}">{{item.originalPriceText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <!-- 美团热销一次加载完成，展示推荐底标 -->
+      <view class="goods-loading" wx:if="{{mtLoading && mtList.length > 0}}">
+        <text>加载中...</text>
+      </view>
+      <view class="goods-end" wx:if="{{mtLoaded && mtList.length > 0}}">
+        <text>— 已为你推荐附近热销 —</text>
+      </view>
+    </block>
+
+    <!-- ==================== 多多好货（tab=3，拼多多） ==================== -->
+    <block wx:elif="{{activeTab === 3}}">
+      <!-- 首次加载中 -->
+      <view class="goods-status" wx:if="{{pddLoading && pddList.length === 0}}">
+        <text>正在加载商品...</text>
+      </view>
+      <!-- 空数据 -->
+      <view class="goods-status" wx:elif="{{pddLoaded && pddList.length === 0}}">
+        <text>暂无商品数据</text>
+      </view>
+      <!-- 商品瀑布流 -->
+      <view class="waterfall-grid" wx:else>
+        <view
+          class="goods-card"
+          wx:for="{{pddList}}"
+          wx:key="id"
+          data-item="{{item}}"
+          bindtap="onGoodsTap"
+          hover-class="goods-card-hover"
+          hover-stay-time="80"
+        >
+          <image class="goods-image" src="{{item.image}}" mode="widthFix" lazy-load />
+          <view class="goods-info">
+            <text class="goods-title">{{item.title}}</text>
+            <view class="goods-price-row">
+              <text class="goods-price-flag">券后</text>
+              <text class="goods-price">{{item.priceText}}</text>
+              <text class="goods-original-price" wx:if="{{item.originalPriceText}}">{{item.originalPriceText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <!-- 多多好货一次加载完成，展示推荐底标 -->
+      <view class="goods-loading" wx:if="{{pddLoading && pddList.length > 0}}">
+        <text>加载中...</text>
+      </view>
+      <view class="goods-end" wx:if="{{pddLoaded && pddList.length > 0}}">
+        <text>— 已为你推荐多多好货 —</text>
+      </view>
+    </block>
+  </view>
+</view>
+
+<!-- 手机号登录弹窗 -->
+<view class="login-modal" wx:if="{{showLoginModal}}" catchtouchmove="noop">
+  <view class="login-mask" bindtap="closeLoginModal"></view>
+  <view class="login-dialog">
+    <view class="login-title">欢迎使用值物APP</view>
+    <view class="login-desc">为了能体验完整的服务，请您进行登录</view>
+    <button class="login-phone-btn" open-type="getPhoneNumber" bindgetphonenumber="onGetPhoneNumber">
+      手机号快捷登录
+    </button>
+    <view class="login-skip" bindtap="closeLoginModal">暂不登录</view>
+  </view>
+</view>
+
+<!-- 第三方授权提示弹窗：各场景判定未授权时弹出，authPlatform 决定「去授权」时请求哪个平台的授权链接 -->
+<view class="login-modal" wx:if="{{showAuthModal}}" catchtouchmove="noop">
+  <view class="login-mask" bindtap="closeAuthModal"></view>
+  <view class="login-dialog">
+    <view class="login-title">授权提醒</view>
+    <view class="login-desc">为了能同步你的购物记录，前往购物前需要你进行第三方服务平台授权，以获得更优惠的价格。</view>
+    <button class="login-phone-btn" bindtap="onConfirmAuth">去授权</button>
+    <view class="login-skip" bindtap="closeAuthModal">暂不授权</view>
+  </view>
+</view>
