@@ -2,7 +2,7 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.8
+- 文档版本：v1.9
 - 更新日期：2026-11-15
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
@@ -16,14 +16,14 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 1. 聚合多个电商平台（唯品会、拼多多、淘宝、京东）与本地生活平台（美团）的商品搜索、商品详情、推广转链能力；
 2. 用户体系（微信 openid + 手机号）与 JWT 登录态；
 3. CPS 佣金订单的拉取、入库与查询（用户收益明细）；
-4. AI 导购对话（DeepSeek 大模型 + 工具调用，实现"聊天即搜品"）；
-5. 运营位能力（首页 Banner、礼品券）。
+4. 运营位能力（首页 Banner、礼品券、首页多 tab 商品流）；
+5. 后台管理（订单/用户/选品查询与管理，`/api/admin` + `admin-web/`）。
 
 **目标用户**：通过微信小程序使用导购服务的 C 端用户；管理 Banner/选品的运营人员。
 
-**当前状态**：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由；AI 聊天功能为原型状态；后台管理（订单/用户查询，`/api/admin` + `admin-web/` 前端）已于 2026-09-30 上线（v1.3）。2026-11-15 起「值物」微信小程序前端并入本仓库（`clients/wechat-miniprogram/`），后续迭代 iOS / Android 原生 App 也将放在 `clients/` 下。
+**当前状态**（2026-11-15 v1.9 整治后）：核心链路（登录、搜索、详情、转链、订单）已上线可用；淘宝、京东平台服务已实现但尚未接入路由（预留）；~~AI 聊天~~已整体下线（需求重启时从 git 历史找回）；C 端响应格式统一为 v2（`{code,msg,data}`，版本协商兼容旧版小程序）。2026-11-15 起「值物」微信小程序前端并入本仓库（`clients/wechat-miniprogram/`），后续迭代 iOS / Android 原生 App 也将放在 `clients/` 下。
 
-**文档体系**：本文档是全项目唯一的需求与迭代追踪文档。小程序端的详细需求与 Change Log 保留在 `clients/wechat-miniprogram/REQUIREMENTS.md`（随代码同仓维护），涉及小程序的迭代需**同步更新两处**：本文档（项目级 Change Log 记一条）+ 小程序详细文档（正文与 Change Log）。
+**文档体系**：本文档是全项目唯一的需求与迭代追踪文档；根目录 `README.md` 是仓库入口（结构地图 / 快速启动 / 部署 / 迭代约定，结构性信息以 README 为准，业务需求以本文档为准）。小程序端的详细需求与 Change Log 保留在 `clients/wechat-miniprogram/REQUIREMENTS.md`（随代码同仓维护），涉及小程序的迭代需**同步更新两处**：本文档（项目级 Change Log 记一条）+ 小程序详细文档（正文与 Change Log）。
 
 ---
 
@@ -33,11 +33,10 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|
 | 运行时 | Node.js + Express 5（`app.js` 装配中间件与路由，`server.js` 启动监听，默认端口 `PORT` 或 3000） |
 | 数据库 | MySQL（`mysql2/promise` 连接池，`utils/database.js`，`dateStrings: true`） |
-| 认证 | JWT（`jsonwebtoken`，1h 过期）+ 密码哈希（`bcryptjs`） |
-| 定时任务 | `node-cron`（当前订单同步脚本以手动一次性方式运行） |
-| AI | OpenAI SDK 兼容接口 → DeepSeek（流式 + Function Calling） |
-| 配置 | `config/config.js` 读取 `.env`（dotenv），含各平台 CPS 密钥、微信、数据库配置 |
-| 分层 | `routes → controllers → services → models / services/platforms（各平台 API 适配层）` |
+| 认证 | JWT（`jsonwebtoken`，C 端 1h / 后台 8h，密钥均走 .env）+ 密码哈希（`bcryptjs`） |
+| 订单同步 | `job/` CLI 脚本手动执行（`npm run sync:vip` / `sync:meituan`），cron 定时未启用（B-3） |
+| 配置 | `config/config.js` 读取 `.env`（dotenv），敏感项与 CPS 业务标识集中收敛，必需项缺失启动即报错 |
+| 分层 | `routes → controllers → services → models / services/platforms（各平台 API 封装）+ services/adapters（字段映射）` |
 
 ### 目录结构
 
@@ -182,15 +181,16 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 签名工具：`utils/meituan-sign-util.js`。
 注意：`meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]`（见问题清单 P3-3），当前美团接口容忍空值，尚未修复。
 
-### 3.11 AI 导购对话模块（/chat）
+### 3.11 ~~AI 导购对话模块（/chat）~~（已下线，模块已删除）
+
+> **2026-11-15（v1.9）**：按用户决定，AI 聊天功能整体下线，`routes/agentRoutes.js`、`controllers/agentController.js`、`services/aiService.js` 三件套已从代码删除，`openai` 依赖已卸载（Backlog B-7 关闭）。以下为历史设计存档，需求重启时从 git 历史找回。
 
 **需求描述**：用户以自然语言表达购物意图，AI 自动调用平台搜索工具并流式返回推荐内容。
 
 - 模型：DeepSeek（OpenAI 兼容协议，`deepseek-v4-pro`，流式输出）；
 - 工具：`search_vip_goods`（关键词搜索唯品会商品）；
 - 事件回调：`token`（增量文本）、`tool_calls`、`status`（如"正在唯品会搜索..."）、`done`、`error`；
-- 当前状态：**原型/演示阶段**——工具调用的 openid/chanTag 写死为占位值，仅接了唯品会一个工具；
-- **路由状态（2026-10-01）**：`/chat` 路由已在 `app.js` 中注释（`agentRoutes` 引入与挂载两行），AI 对话功能暂时下线（关联提交 `44b1298`，因 API Key 未配置）；恢复时取消注释即可。
+- 下线前状态：原型/演示阶段——工具调用的 openid/chanTag 写死为占位值，仅接了唯品会一个工具；`/chat` 路由自 2026-10-01 起注释下线（`44b1298`）。
 
 ### 3.12 后台管理模块（/api/admin + admin-web/，2026-09-30 新增）
 
@@ -230,6 +230,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 3. 详细需求与小程序端 Change Log 见 `clients/wechat-miniprogram/REQUIREMENTS.md`（v0.14.6 @ 2026-10-05），小程序迭代需同步更新该文档与本文档 Change Log；
 4. 微信开发者工具打开 `clients/wechat-miniprogram/` 目录即可开发，需将目录加入小程序后台的合法域名/项目配置（域名与原仓库一致，无需变更）；
 5. console 打印接口信息的固定格式：先一行纯文本说明，下一行单独打印数据对象（不合并、不用 JSON.stringify），保证 console 可折叠查看。
+
+**响应格式 v2（2026-11-15 起，随 v1.9 后端整治同步上线）**：C 端全部接口统一为 `{ code: 200, msg: 'ok', data: ... }`；HTTP 错误 4xx/5xx + `{ code, msg, data: null }`；业务码 -1（平台未授权，`data.needAuthPlatform`）/ -2（不支持的平台）HTTP 200 下发。**版本协商**：小程序 `utils/api.js` 所有请求携带请求头 `X-Client-Ver: 2` 才获得新格式；未携带的历史版本小程序自动回落 legacy 旧结构（线上旧版不受影响），旧版全部淘汰后可移除后端各 controller 的 legacy 分支（`utils/response.js`）。小程序 api.js 作为适配层把 v2 响应解包后**保持页面层契约不变**，页面无需改动。iOS / Android App 未来直接消费 v2 格式。
 
 **后续规划**：iOS / Android 原生 App 将分别落在 `clients/ios/`、`clients/android/`（预留，未开工）。
 
@@ -272,6 +274,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 变量 | 用途 |
 |---|---|
 | `PORT` / `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 服务与 MySQL |
+| `JWT_SECRET` / `JWT_EXPIRES_IN` | **C 端用户 JWT 密钥/有效期**（2026-11-15 起必填，缺失启动即报错，fail-fast；本地 .env 已配 `19910416`，**服务器 .env 需同步添加后再部署**） |
 | `VIP_CPS_APPKEY` / `VIP_CPS_APPSECRET` | 唯品会联盟 |
 | `JD_CPS_APPKEY` / `JD_CPS_APPSECRET` | 京东联盟 |
 | `PDD_CPS_CLIENT_ID` / `PDD_CPS_APPSECRET` | 拼多多 |
@@ -279,6 +282,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | `TB_CPS_APPKEY` / `TB_CPS_APPSECRET` | 淘宝联盟 |
 | `WECHAT_APPID` / `WECHAT_APPSECRET` | 微信小程序 |
 | `ADMIN_JWT_SECRET` | 后台管理 JWT 密钥（与 C 端隔离，2026-09-30 新增，已写入 .env） |
+| `PDD_PID` / `VIP_CHAN_TAG` / `VIP_JX_CODE` / `VIP_MINI_SOURCE_ID` / `VIP_MINI_APP_ID` | CPS 业务标识（2026-11-15 新增，可选；缺省回落到 `config/config.js` 的当前线上值。此前散落硬编码在 adpTranUrlService/adpThirdAuthService/pddService/adpIndexListService，现集中收敛到 config） |
 
 ---
 
@@ -289,15 +293,15 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 编号 | 级别 | 问题 | 位置 |
 |---|---|---|---|
 | P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner/adp_goods）不一致，且 `adp_user / adp_order / adp_banner / adp_goods` 四张业务表均缺正式 DDL，新环境无法一键建库 | `sql/init.sql` |
-| P1-2 | 高 | **敏感信息硬编码**：~~DeepSeek API Key 明文写死~~（2026-09-20 已从代码清除，但历史提交中仍存在，建议作废该 Key；当前代码中为空字符串，AI 对话功能不可用，需改走 .env 环境变量）；JWT 密钥仍写死（`19910416`）、DB 密码有默认明文兜底 | `services/aiService.js`、`services/adpUserService.js`、`config/config.js` |
-| P1-3 | 高 | 订单同步任务写死补拉日期（2026-09-01 ~ 2026-09-12）且以立即执行 IIFE 方式运行，cron 调度被注释；`node server` 时任务不会自动执行，也未纳入统一调度 | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
+| P1-2 | 高 | ~~**敏感信息硬编码**：DeepSeek API Key 明文写死；JWT 密钥写死 `19910416`、DB 密码有默认明文兜底~~（**2026-11-15 已修复（v1.9）**：AI 聊天模块整体移除；C 端 `JWT_SECRET` 必填走 .env（config 加载期 fail-fast，与 ADMIN_JWT_SECRET 同标准）；DB user/password/database 取消默认兜底；本地与服务器 .env 均需配置。注：`19910416` 作为 JWT_SECRET 仍在 git 历史中，建议择期轮换） | ~~`services/aiService.js`~~（已删）、`services/adpUserService.js`、`config/config.js` |
+| P1-3 | 中 | ~~订单同步任务写死补拉日期且以 IIFE 方式运行~~（**2026-11-15 已修复（v1.9）**：两个同步脚本改为 CLI 传参 `node job/xxxSync.js [startDate] [endDate]`，缺省拉取昨天~今天；cron 调度仍未启用，见 B-3） | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
 | P2-1 | 中 | ~~`adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛运行时错误~~（2026-10-05 已修复：pdd 按链接转链恢复实现，含 error_response 错误处理） | `services/adpTranUrlService.js` |
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
 | P2-3 | 中 | `updateUserInfo` 将 openid 直接覆盖到已有用户，可能与"openid 一对一绑定"规则冲突（A 用户手机号登录会顶掉原绑定关系） | `models/adpUser.js` / `adpUserService.register` |
-| P2-4 | 中 | aiService 工具调用参数 openid/chanTag 写死占位值，未接真实用户上下文；模型名 `deepseek-v4-pro` 与密钥需核实 | `services/aiService.js` |
-| P2-5 | 中 | 硬编码业务参数：pdd 按商品 ID 转链的 `pid` 写死为 `43384525_317172887`；pdd 授权链接生成/检查的 `pid` 同样写死（2026-09-20）；`/api/tranUrl` 按链接转链中 pdd `pid` 与 vip `chanTag` 亦写死默认值（2026-10-05）；vip 转链出参中小程序 `weapp_source_id`/`weapp_app_id` 写死，应迁入配置 | `services/adpTranUrlService.js`、`services/adpThirdAuthService.js` |
-| P3-1 | 低 | `pageSize` 定义了但未传入 vip/pdd 请求参数；`adpIndexListService` 无 default 返回值（tab 非法时返回 undefined）；大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式 | 多处 |
-| P3-2 | 低 | `test.js`、`express-generator` 依赖、无意义的 `scripts.test` 需清理；无 ESLint、无单元测试、无 CI | 工程化 |
+| P2-4 | 中 | ~~aiService 工具调用参数写死占位值、模型名需核实~~（**2026-11-15 已随 AI 聊天功能整体下线（v1.9）**：agentRoutes/agentController/aiService 三件套已删除，`openai` 依赖已卸载，需求恢复时从 git 历史找回） | ~~`services/aiService.js`~~（已删） |
+| P2-5 | 中 | ~~硬编码业务参数：pdd pid、vip chanTag/source_id/app_id、组货码散落各 service~~（**2026-11-15 已修复（v1.9）**：全部集中收敛到 `config/config.js` 的 `cps` 配置块，支持 `PDD_PID`/`VIP_CHAN_TAG`/`VIP_JX_CODE`/`VIP_MINI_SOURCE_ID`/`VIP_MINI_APP_ID` 环境变量覆盖） | `config/config.js` |
+| P3-1 | 低 | ~~大量 console.log 调试输出；无统一响应结构与全局错误 JSON 格式~~（**2026-11-15 大部分已修复（v1.9）**：C 端全部接口统一 `{code,msg,data}`（v2 格式 + X-Client-Ver 版本协商兼容旧版小程序，见 3.13）；全局错误中间件与 404 兜底统一 JSON；models/services 高频调试 log 已清理；`pageSize` 未传 vip/pdd 与 tab 非法返回 undefined 两点仍未处理） | 多处 |
+| P3-2 | 低 | ~~`test.js`、`express-generator` 等冗余依赖需清理~~（**2026-11-15 已修复（v1.9）**：test.js（含真实手机号）、models/VerificationCode.js 已删除；express-generator/cors/moment/node-cron/openai 5 个零引用依赖已卸载；仍无 ESLint、无单元测试、无 CI） | 工程化 |
 | P3-3 | 低 | `meituanService.getGoodsInfo` 中 `productViewSignList:[productViewSignList]`、`vpSkuViewIds:[vpSkuViewIds]` 在参数未传时会生成 `[null]` 发给美团接口（首页 Tab2 调用即触发）；建议改为 `xxx ? [xxx] : []` 兜底（console.log 已于 2026-10-02 关闭） | `services/platforms/meituanService.js`（2026-10-01 新增） |
 | P2-6 | 中 | ~~前端 401 跳转硬编码 `location.href='/login'`，部署在 `/admin/` 子路径下 token 过期后会 404~~（2026-10-03 已修复：改为 `import.meta.env.BASE_URL + 'login'` 拼接） | `admin-web/src/api/request.js` |
 | P3-4 | 低 | ~~前端三处健壮性问题：`admin_info` 仅登录时写入缓存（后台改角色后前端 readonly 判断失真）、`JSON.parse(localStorage)` 无兜底可能白屏、`getProfile` 接口未被调用~~（2026-10-03 已修复：AdminLayout 挂载时调用 getProfile 刷新缓存、JSON.parse 加 try/catch） | `admin-web/src/layout/AdminLayout.vue`、`admin-web/src/views/goods/GoodsList.vue` |
@@ -311,14 +315,14 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|---|
 | B-1 | 淘宝 CPS 服务接入路由（转链/详情/物料推荐），补齐 `tb_cps_key` 环境变量 | 高 | 待排期 |
 | B-2 | 京东 CPS 服务接入路由 | 中 | 待排期 |
-| B-3 | 订单同步任务统一调度：恢复 cron 定时 + 支持 CLI 参数传日期补拉 + 增加平台参数（vip/meituan/jd/tb） | 高 | 待排期 |
+| B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + 恢复 cron 定时 + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 部分完成（2026-11-15 v1.9：CLI 传参已上线 `npm run sync:vip` / `npm run sync:meituan [startDate] [endDate]`；cron 定时与平台参数未做） |
 | B-4 | JWT 鉴权中间件接入受保护接口（订单、转链等） | 高 | 待排期 |
-| B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | 待排期 |
-| B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / verification_codes 正式 DDL 并与代码对齐 | 高 | 待排期 |
-| B-7 | AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化 | 中 | 待排期 |
+| B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | 🔄 大部分完成（2026-11-15 v1.9：AI 模块已删、C 端 `JWT_SECRET` 与 DB 配置强制走 .env（fail-fast）、CPS 业务标识集中收敛 config；**剩余：轮换历史泄漏的密钥/`19910416`**） |
+| B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / ~~verification_codes~~ 正式 DDL 并与代码对齐 | 高 | 待排期 |
+| B-7 | ~~AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化~~ | 中 | ❌ 已下线（2026-11-15 v1.9：AI 聊天三件套整体移除，openai 依赖卸载；需求重启时从 git 历史找回） |
 | B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（pdd"按商品 ID"与"按 URL"转链均已恢复，双平台授权预检已上线（2026-10-05）；仅剩淘宝链接识别未做） |
-| B-9 | 验证码登录流程（表已建，短信通道未接） | 低 | 待排期 |
-| B-10 | 工程化：统一响应格式、日志库替换 console.log、ESLint、单测 | 低 | 待排期（后台模块已率先落地统一响应 `{code,msg,data}`） |
+| B-9 | 验证码登录流程（~~表已建~~ verification_codes 已删，重启需求时需重建） | 低 | 待排期 |
+| B-10 | 工程化：~~统一响应格式~~、日志库替换 console.log、ESLint、单测 | 低 | 🔄 部分完成（2026-11-15 v1.9：C 端统一响应 `{code,msg,data}` 已落地（v2 格式 + X-Client-Ver 版本协商，见 3.13），admin 模块此前已落地；剩余：日志库、ESLint、单测） |
 | B-11 | 后台管理系统：登录鉴权 + 订单/用户查询（/api/admin + admin-web 前端） | 高 | ✅ 已完成（2026-09-30，见 3.12；后续可扩展：Dashboard 统计、Banner/选品管理、管理员账号管理） |
 
 ---
@@ -327,6 +331,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-15 | v1.9 | **代码结构整治（全项目，AI 主导维护模式首次全量落地）**。① 安全止血：C 端 `JWT_SECRET` 迁 .env（config 加载期 fail-fast）、DB user/password/name 取消硬编码兜底、CPS 业务标识（pddPid/vipChanTag/vipJxCode/vipMiniSourceId/vipMiniAppId）集中收敛 `config/config.js` 可 env 覆盖；② 删除死代码：AI 聊天三件套（routes/agentRoutes、controllers/agentController、services/aiService，openai 依赖卸载）、test.js（含真实手机号）、models/VerificationCode.js；③ **C 端统一响应 `{code,msg,data}`**：新增 `utils/response.js`，全部 C 端 controller 接入，`X-Client-Ver: 2` 请求头版本协商兼容线上旧版小程序（legacy 分支待旧版淘汰后移除）；全局错误中间件/404/健康检查统一 JSON；④ 新增 `services/adapters/`（vipAdapter/pddAdapter）集中 vip/pdd 字段映射，搜索/详情/转链三处复用；顺手修复 pdd 商品详情 `goods_sign` 参数错传导致 pdd 详情恒失败的隐性 bug；⑤ models 命名统一 `xxxModel`（adpUser→adpUserModel、adpOrder→adpOrderModel，git mv 保历史）；job 脚本改 CLI 传参（`npm run sync:vip` / `sync:meituan [startDate] [endDate]`）；banner service 合并重复函数；清 debug log/隐式全局变量/pdd searchGoods pid 兜底；⑥ package.json 精简（移除 express-generator/cors/moment/node-cron/openai，补 start/sync scripts）；⑦ 预留 `clients/ios/`、`clients/android/`（README 说明未来消费 v2 统一格式）；⑧ 小程序端：`utils/api.js` 全量适配 v2 格式（请求头 + 适配器解包，页面层契约不变），app.js 登录成功判断改 `code === 200`；⑨ 本地冒烟测试通过（legacy/v2 双模式、404、参数校验、DB 路由）；⑩ 新增根目录 `README.md`（结构地图/快速启动/部署/迭代约定，仓库入口文档）；⑪ `project.private.config.json`（微信开发者工具个人配置）移出 git 跟踪并 ignore。**部署提醒：服务器 .env 需补 `JWT_SECRET` 及 CPS 标识变量后再发布** | 待提交 |
 | 2026-11-15 | v1.8 | **仓库架构调整：并入值物微信小程序，monorepo 化**。① 原独立仓库 `huigenghao-xcx` 以 subtree 方式并入 `clients/wechat-miniprogram/`，保留全部提交历史；② 目录结构新增 `clients/` 分组（预留 ios/android，见 2.1）；③ 新增 3.13 客户端章节（小程序关键约定：BASE_URL 唯一入口、api.js 调用方联动检查、文档双更新约定）；④ `.gitignore` 忽略 `.codebuddy/`；⑤ 小程序端详细需求仍维护于 `clients/wechat-miniprogram/REQUIREMENTS.md`（v0.14.6），迭代时与本文档双更新；⑥ 迁移前小程序端已收尾提交（pdd appId 登记、首页坑位适配，v0.14.7 前置改动） | `0268a08`（merge）、`1a400f5`（小程序收尾） |
 | 2026-10-05 | v1.7 | ① 3.5 `/api/tranUrl` 恢复 pdd 按链接转链（解决 P2-1），pdd 转链前同样增加授权预检；② 响应码统一 `200/-1/-2`；③ 必传参数改为 `uid + source_url`；④ P2-5 补充按链接转链的默认 pid/chanTag；⑤ B-8 状态更新（仅剩淘宝识别） | `f142245` |
 | 2026-10-03 | v1.6 | ① 3.2 新增解绑授权接口 `GET /api/thirdAuth/unbind`（仅 vip，调 unbindOpenId）；② 3.5 `/api/tranUrl` vip.com 链接转链前增加授权预检，未授权返回 `needAuthPlatform: 'vip'` 供前端引导授权 | `ba28b81` |

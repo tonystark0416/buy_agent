@@ -65,7 +65,7 @@ function mapProduct(item) {
  * 适配真实接口响应 → 统一内部格式
  */
 function adaptResponse(rawData) {
-  if (!rawData || !rawData.success) {
+  if (!rawData || rawData.code !== 200) {
     return null;
   }
 
@@ -104,6 +104,7 @@ function parseResponseData(data) {
 
 /**
  * 发起 GET 请求
+ * 请求头携带 X-Client-Ver: 2 → 后端返回统一格式 { code, msg, data }
  */
 function request(url) {
   return new Promise((resolve, reject) => {
@@ -111,6 +112,7 @@ function request(url) {
       url,
       method: 'GET',
       timeout: 5000,
+      header: { 'X-Client-Ver': '2' },
       success: (res) => {
         if (res.statusCode === 200) {
           resolve(parseResponseData(res.data));
@@ -127,6 +129,7 @@ function request(url) {
 
 /**
  * 发起 POST 请求
+ * 请求头携带 X-Client-Ver: 2 → 后端返回统一格式 { code, msg, data }
  */
 function postRequest(url, data) {
   return new Promise((resolve, reject) => {
@@ -134,7 +137,7 @@ function postRequest(url, data) {
       url,
       method: 'POST',
       data,
-      header: { 'Content-Type': 'application/json' },
+      header: { 'X-Client-Ver': '2', 'Content-Type': 'application/json' },
       timeout: 5000,
       success: (res) => {
         if (res.statusCode === 200) {
@@ -267,8 +270,8 @@ async function searchProducts({ keyword = '', platform = 'all', page = 1, pageSi
 /**
  * 适配真实商品详情接口 → 内部统一格式
  *
- * 新接口返回结构:
- *   { result: true, data: {
+ * 统一响应结构:
+ *   { code: 200, msg: 'ok', data: {
  *       platform, goodsId, goodsName,
  *       images: [], detailImages: [],
  *       prices: { marketPrice, salePrice },
@@ -277,7 +280,7 @@ async function searchProducts({ keyword = '', platform = 'all', page = 1, pageSi
  *   } }
  */
 function adaptGoodsDetail(rawData) {
-  if (!rawData || rawData.result !== true) return null;
+  if (!rawData || rawData.code !== 200) return null;
 
   const d = rawData.data || {};
   const prices = d.prices || {};
@@ -423,6 +426,9 @@ async function loginByOpenid(openid) {
   }
 }
 
+// 注：v2 统一格式下登录成功为 { code: 200, msg: 'ok', data: { user, token } }，
+// app.js 的 isSuccess 判断已同步改为 loginResult.code === 200
+
 // ==================== 第三方授权 ====================
 
 /**
@@ -442,12 +448,17 @@ async function checkAuth(uid, platform) {
         url: `${BASE_URL}/api/thirdAuth/checkAuth?${query}`,
         method: 'GET',
         timeout: 5000,
+        header: { 'X-Client-Ver': '2' },
         success: resolve,
         fail: reject,
       });
     });
     console.log('[API] checkAuth data:', fullRes.data);
-    return fullRes.data;
+    const body = parseResponseData(fullRes.data);
+    // v2 统一格式 { code: 200, data: { isAuth } } → 直接返回 authStatus
+    if (body && body.code === 200) return body.data || { isAuth: false };
+    // 兜底：旧结构 { result, authStatus }
+    return body || { isAuth: false };
   } catch (err) {
     console.error('[API] checkAuth 失败:', err.message);
     return { isAuth: false };
@@ -469,7 +480,10 @@ async function genAuthUrl(uid, platform) {
     const result = await request(`${BASE_URL}/api/thirdAuth/genAuthUrl?${query}`);
     console.log('[API] genAuthUrl 响应:');
     console.log(result);
-    return result;
+    // v2 统一格式 { code: 200, data: { h5_url, weapp_url, deeplink_url } } → 返回 authUrl 对象
+    if (result && result.code === 200) return result.data || null;
+    // 兜底：旧结构 { result, authUrl }
+    return result && result.authUrl ? result.authUrl : (result || null);
   } catch (err) {
     console.error('[API] genAuthUrl 失败:', err.message);
     return null;
@@ -542,37 +556,37 @@ async function convertLink(url, uid) {
     }
 
     const resCode = result.code;
-    console.log('[API] convertLink resCode:', resCode, 'hasUrls:', !!result.urls, 'hasH5:', !!(result.urls && result.urls.h5_url));
 
-    // 成功
-    if (resCode === 200 && result.urls && result.urls.h5_url) {
+    // 成功：v2 { code: 200, data: { urls } }
+    if (resCode === 200 && result.data && result.data.urls && result.data.urls.h5_url) {
+      const urls = result.data.urls;
       return {
         code: 0,
         data: {
           originalUrl: url.trim(),
           // 平台标识（前端 detectPlatform 识别），供页面跳转小程序时兜底 appId
           platform: detectPlatform(url),
-          h5_url: result.urls.h5_url,
-          weapp_url: result.urls.weapp_url || '',
-          weapp_short_link: result.urls.weapp_short_link || '',
-          deeplink_url: result.urls.deeplink_url || '',
+          h5_url: urls.h5_url,
+          weapp_url: urls.weapp_url || '',
+          weapp_short_link: urls.weapp_short_link || '',
+          deeplink_url: urls.deeplink_url || '',
         },
       };
     }
 
-    // 用户未授权该链接对应平台：接口返回 { code: -1, needAuthPlatform: 'vip'|'pdd', message }
+    // 用户未授权该链接对应平台：接口返回 { code: -1, msg, data: { needAuthPlatform: 'vip'|'pdd' } }
     // 透传给页面层，由页面弹对应平台的授权提示窗引导用户去授权
-    if (resCode === -1 && result.needAuthPlatform) {
+    if (resCode === -1 && result.data && result.data.needAuthPlatform) {
       return {
         code: -1,
-        needAuthPlatform: result.needAuthPlatform,
-        message: result.message || '用户未授权',
+        needAuthPlatform: result.data.needAuthPlatform,
+        message: result.msg || '用户未授权',
       };
     }
 
     // 不支持的平台链接
     if (resCode === -2) {
-      return { code: -2, message: result.message || '暂不支持该平台的链接' };
+      return { code: -2, message: result.msg || '暂不支持该平台的链接' };
     }
 
     // 转换失败
@@ -615,7 +629,12 @@ async function getGoodsTranUrlByGoodsId({ goodsId, platform = 'vip', uid = USER_
     const result = await request(url);
     console.log('[API] getGoodsTranUrlByGoodsId 响应:');
     console.log(result);
-    return result;
+    // v2 统一格式 { code: 200, data: { goodsId, urls } } → 还原页面层契约 { result: true, goodsId, urls }
+    if (result && result.code === 200 && result.data) {
+      return { result: true, ...result.data };
+    }
+    // 兜底：旧结构 { result, goodsId, urls }
+    return result || null;
   } catch (err) {
     console.warn('[API] getGoodsTranUrlByGoodsId 失败:', err.message);
     return null;
@@ -634,10 +653,11 @@ async function getBanners() {
     const result = await request(`${BASE_URL}/api/banner`);
     console.log('[API] getBanners 响应:');
     console.log(result);
-    if (Array.isArray(result)) {
-      return result.sort((a, b) => (b.sort || 0) - (a.sort || 0));
-    }
-    return [];
+    // v2 统一格式 { code: 200, data: [...] }
+    const arr = result && result.code === 200 && Array.isArray(result.data)
+      ? result.data
+      : (Array.isArray(result) ? result : []);
+    return arr.sort((a, b) => (b.sort || 0) - (a.sort || 0));
   } catch (err) {
     console.warn('[API] getBanners 失败:', err.message);
     return [];
@@ -655,7 +675,15 @@ async function getIndexActivityBanners() {
     const result = await request(`${BASE_URL}/api/banner/indexBannerList`);
     console.log('[API] getIndexActivityBanners 响应:');
     console.log(result);
-    const arr = Array.isArray(result) ? result : result && Array.isArray(result.data) ? result.data : [];
+    // v2 统一格式 { code: 200, data: [...] }；兜底旧结构（顶层数组或 { data: [...] }）
+    let arr = [];
+    if (result && result.code === 200 && Array.isArray(result.data)) {
+      arr = result.data;
+    } else if (Array.isArray(result)) {
+      arr = result;
+    } else if (result && Array.isArray(result.data)) {
+      arr = result.data;
+    }
     return arr.slice().sort((a, b) => (b.sort || 0) - (a.sort || 0));
   } catch (err) {
     console.warn('[API] getIndexActivityBanners 失败:', err.message);
@@ -676,7 +704,9 @@ async function getMeituanReferralLink(actId) {
     const result = await request(url);
     console.log('[API] getMeituanReferralLink 响应:');
     console.log(result);
-    return result;
+    // v2 统一格式 { code: 200, data } → 还原页面层契约 { success: true, data }
+    if (result && result.code === 200) return { success: true, data: result.data };
+    return result || null;
   } catch (err) {
     console.warn('[API] getMeituanReferralLink 失败:', err.message);
     return null;
@@ -695,7 +725,9 @@ async function getMeituanGoodsReferralLink(productViewSign) {
     const result = await request(url);
     console.log('[API] getMeituanGoodsReferralLink 响应:');
     console.log(result);
-    return result;
+    // v2 统一格式 { code: 200, data } → 还原页面层契约 { success: true, data }
+    if (result && result.code === 200) return { success: true, data: result.data };
+    return result || null;
   } catch (err) {
     console.warn('[API] getMeituanGoodsReferralLink 失败:', err.message);
     return null;
@@ -790,7 +822,7 @@ async function getMeituanGoodsDetail(productViewSign) {
     console.log('[API] getMeituanGoodsDetail 响应:');
     console.log(result);
 
-    if (!result || !result.success || !result.data || result.data.code !== 0) {
+    if (!result || result.code !== 200 || !result.data || result.data.code !== 0) {
       console.warn('[API] getMeituanGoodsDetail 返回异常:', result);
       return null;
     }
@@ -896,7 +928,7 @@ async function searchMeituanGoods({ searchText = '', longitude = '', latitude = 
     console.log('[API] searchMeituanGoods 响应:');
     console.log(result);
 
-    if (!result || !result.success || !result.data || result.data.code !== 0) {
+    if (!result || result.code !== 200 || !result.data || result.data.code !== 0) {
       console.warn('[API] searchMeituanGoods 返回异常:', result);
       return { list: [], hasNext: false, searchId: '' };
     }
@@ -952,7 +984,9 @@ async function fetchVipIndexGoods({ uid = USER_CONFIG.uid, offset = 0, pageSize 
     console.log('[API] fetchVipIndexGoods 请求URL:', url);
     const result = await request(url);
 
-    const r = result && result.returnCode === '0' && result.result ? result.result : null;
+    // v2 统一格式 { code: 200, data: { returnCode: '0', result: { goodsInfoList, ... } } }
+    const d = result && result.code === 200 ? result.data : result;
+    const r = d && d.returnCode === '0' && d.result ? d.result : null;
     if (!r || !Array.isArray(r.goodsInfoList)) {
       console.warn('[API] fetchVipIndexGoods 返回异常:', result);
       return { list: [], hasMore: false, nextOffset: offset };
@@ -986,12 +1020,14 @@ async function fetchMeituanIndexGoods({ longitude = '', latitude = '' } = {}) {
     console.log('[API] fetchMeituanIndexGoods 请求URL:', url);
     const result = await request(url);
 
-    if (!result || result.code !== 0 || !Array.isArray(result.data)) {
+    // v2 统一格式 { code: 200, data: { code: 0, data: [...] } }
+    const d = result && result.code === 200 ? result.data : result;
+    if (!d || d.code !== 0 || !Array.isArray(d.data)) {
       console.warn('[API] fetchMeituanIndexGoods 返回异常:', result);
       return { list: [] };
     }
 
-    return { list: result.data.map(mapMeituanGoods) };
+    return { list: d.data.map(mapMeituanGoods) };
   } catch (err) {
     console.warn('[API] fetchMeituanIndexGoods 失败:', err.message);
     return { list: [] };
@@ -1013,12 +1049,14 @@ async function fetchPddIndexGoods() {
     console.log('[API] fetchPddIndexGoods 请求URL:', url);
     const result = await request(url);
 
-    if (!Array.isArray(result)) {
+    // v2 统一格式 { code: 200, data: [...] }；兜底旧结构（顶层数组）
+    const list = result && result.code === 200 ? result.data : result;
+    if (!Array.isArray(list)) {
       console.warn('[API] fetchPddIndexGoods 返回异常（非数组）:', result);
       return { list: [] };
     }
 
-    return { list: result };
+    return { list };
   } catch (err) {
     console.warn('[API] fetchPddIndexGoods 失败:', err.message);
     return { list: [] };
@@ -1080,16 +1118,18 @@ async function getOrderList(uid, page = 1, platform = 'vip') {
     console.log('[API] getOrderList 响应:');
     console.log(result);
 
-    if (!result || !Array.isArray(result.list)) {
+    // v2 统一格式 { code: 200, data: { list, page, total, totalPages } }；兜底旧结构（顶层数据）
+    const d = result && result.code === 200 ? result.data : result;
+    if (!d || !Array.isArray(d.list)) {
       console.warn('[API] getOrderList 返回异常:', result);
       return { list: [], page: 1, total: 0, totalPages: 0 };
     }
 
     return {
-      list: result.list.map(mapOrder),
-      page: parseInt(result.page, 10) || page,
-      total: parseInt(result.total, 10) || 0,
-      totalPages: parseInt(result.totalPages, 10) || 0,
+      list: d.list.map(mapOrder),
+      page: parseInt(d.page, 10) || page,
+      total: parseInt(d.total, 10) || 0,
+      totalPages: parseInt(d.totalPages, 10) || 0,
     };
   } catch (err) {
     console.warn('[API] getOrderList 失败:', err.message);

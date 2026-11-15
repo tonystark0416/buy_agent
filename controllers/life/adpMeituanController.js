@@ -1,17 +1,20 @@
 /**
  * 美团CPS接口服务 https://media.meituan.com/pc/index.html#/materials/api
- * @author liuweizhao
- * @date 2024-06-01 
  */
 
 const meituanService = require('../../services/platforms/meituanService');
+const { ok } = require('../../utils/response.js');
 
+/**
+ * v2: { code: 200, msg: 'ok', data: <meituanService 原始载荷> }
+ * legacy: { success: true, data }
+ */
 //获取美团商品列表接口
 exports.getWaimaiGoodsList = async (req, res, next) => {
-    const  {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList, listTopiId, platform, vpSkuViewIds} = req.query;
+    const {searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList, listTopiId, platform, vpSkuViewIds} = req.query;
     try {
         const result = await meituanService.getGoodsInfo({searchText, longitude,latitude,pageSize,pageNo,searchId,sortField,productViewSignList, listTopiId, platform, vpSkuViewIds});
-        res.json({ success: true, data: result }); //返回数据给前端
+        ok(req, res, result, () => ({ success: true, data: result }));
     } catch (error) {
         next(error);
     }
@@ -22,7 +25,7 @@ exports.getWaimaiGoodsDetail = async (req, res, next) => {
     const  {productViewSignList} = req.query;
     try {
         const result = await meituanService.getGoodsInfo({productViewSignList});
-        res.json({ success: true, data: result }); //返回数据给前端
+        ok(req, res, result, () => ({ success: true, data: result }));
     } catch (error) {
         next(error);
     }
@@ -34,7 +37,7 @@ exports.getReferralLinkByGoodsId = async (req, res, next) => {
     const  {productViewSign} = req.query;
     try {
         const result = await meituanService.getReferralLink({productViewSign});
-        res.json({ success: true, data: result }); //返回数据给前端
+        ok(req, res, result, () => ({ success: true, data: result }));
     } catch (error) {
         next(error);
     }
@@ -46,20 +49,18 @@ exports.getReferralLinkByActId = async (req, res, next) => {
     const sid = uid;
     try {
         const result = await meituanService.getReferralLink({actId,sid});
-        res.json({ success: true, data: result }); //返回数据给前端
+        ok(req, res, result, () => ({ success: true, data: result }));
     } catch (error) {
         next(error);
     }
 }
 
 
-
 //获取订单信息
 exports.getOrderInfo = async (req, res, next) => {
-    // const  {actId} = req.query;
     try {
         const result = await meituanService.getOrderInfo();
-        res.json({ success: true, data: result }); //返回数据给前端
+        ok(req, res, result, () => ({ success: true, data: result }));
     } catch (error) {
         next(error);
     }

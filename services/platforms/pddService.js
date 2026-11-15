@@ -85,8 +85,7 @@ async function searchGoods({ activity_tags, keyword, page, page_size, pid }) {
         page: page,
         page_size: page_size,
         keyword: keyword,
-        // custom_parameters: custom_parameters,
-        pid: pid,
+        pid: pid || config.cps.pddPid, // pid 未传时回落到全局默认推广位，避免 "undefined" 参与签名
     }
 
     //活动标记，看看是否有传入
@@ -191,7 +190,6 @@ async function getPddGenUrlByGoods({goodsId,uid,pid}) {
         generate_short_url:true,
         generate_we_app:true
     }
-    console.log('调用拼多多生成推广链接接口，参数：', bizParams);
     const response = await pddOpenApiRequest(type, bizParams);
     return response;
 }

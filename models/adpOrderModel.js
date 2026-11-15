@@ -26,7 +26,6 @@ async function findOrder(order_sn) {
  */
 async function createAdpOrder(orderData) {
     const { order_sn, uid, goods_id, goods_name,goods_img_url,status, platform, order_amount, commission, create_time, update_time } = orderData
-    console.log(orderData);
 
     const [result] = await pool.execute('INSERT INTO adp_order (order_sn, uid,goods_id,goods_name,goods_img_url,status,platform,order_amount,commission,create_time,update_time) VALUES (?,?,?,?,?,?,?,?,?,?,?)', [order_sn, uid, goods_id,goods_name,goods_img_url, status, platform, order_amount, commission, create_time, update_time]);
 
@@ -58,7 +57,6 @@ async function getOrderListByUid(params) {
     
 
     const [countRows] = await pool.execute(sqlCount, [uid,platform]); //统计总数
-    console.log(countRows)
     const [rows] = await pool.execute(sqlList, [uid, platform, pageNo, pageSize]); //分页查询
 
     const total = countRows[0]?.total || 0

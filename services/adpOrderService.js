@@ -4,7 +4,7 @@
  * @date 2024-06-01 
  */
 
-const orderModel = require('../models/adpOrder')
+const orderModel = require('../models/adpOrderModel')
 
 
 async function getOrderListByUid(params) {

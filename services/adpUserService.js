@@ -7,11 +7,11 @@
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/adpUser.js');
-// const CodeModel = require('../models/VerificationCode');
+const config = require('../config/config.js');
+const UserModel = require('../models/adpUserModel.js');
 
-const JWT_SECRET = '19910416'; // 替换为你的 JWT 密钥
-const JWT_EXPIRES_IN = '1h'; // JWT 过期时间
+const JWT_SECRET = config.jwt.secret; // 缺失时 config 加载期即报错（fail-fast）
+const JWT_EXPIRES_IN = config.jwt.expiresIn;
 
 
 //---- openid联合登陆----、

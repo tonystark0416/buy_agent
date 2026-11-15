@@ -1,14 +1,13 @@
 /**
  * @fileOverview adpGoodsDetailService.js
  * @description 适配器商品详情服务
- * @author liuweizhao
- * @version 1.0.0
- * @date 2024-06-20
  */
 
-
-const vipService = require('../services/platforms/vipService');
-const pddService = require('../services/platforms/pddService');
+const vipService = require('./platforms/vipService');
+const pddService = require('./platforms/pddService');
+const vipAdapter = require('./adapters/vipAdapter');
+const pddAdapter = require('./adapters/pddAdapter');
+const config = require('../config/config.js');
 
 //获取商品详情
 async function getGoodsDetail({ platform, goodsId, uid, pid }) {
@@ -22,12 +21,12 @@ async function getGoodsDetail({ platform, goodsId, uid, pid }) {
             return await getVipGoodsDetail({
                 goodsId,
                 openid: uid,
-                chanTag: pid || 'default_chanTag'
+                chanTag: pid || config.cps.vipChanTag
             });
 
         case 'pdd':
             return await getPddGoodsDetail({
-                goods_sign: goodsId,
+                goodsId,
                 uid,
                 pid,
             });
@@ -51,33 +50,9 @@ async function getVipGoodsDetail({ goodsId, openid, chanTag }) {
         throw new Error('唯品会商品不存在或接口返回失败');
     }
 
-    return normalizeVipGoodsDetail(response, goodsId);
+    return vipAdapter.normalizeGoodsDetail(response, goodsId);
 }
 
-
-//根据实际接口响应格式化唯品会字段,与前端约定的返回结果
-function normalizeVipGoodsDetail(item, goodsId) {
-    return {
-        platform: 'vip',
-        goodsId: item.goodsId || goodsId,
-        url:item.destUrlPc,
-        goodsName: item.goodsName || '',
-        images: item.goodsCarouselPictures || [],
-        detailImages: item.goodsDetailPictures || [],
-        prices: {
-            marketPrice: toNumber(item.goodsPromotionInfo.marketPrice),
-            salePrice: toNumber(item.goodsPromotionInfo.salePrice),
-            priceDesc:item.goodsPromotionInfo.salePriceDetail || '', //价格详情
-            // couponPrice: toNumber(item.couponPrice),
-        },
-        commission: {
-            rate: toNumber(item.commissionRate),
-            amount: toNumber(item.commission),
-        },
-        tags: item.tagNames || [],
-        brandName: item.brandName || '',
-    };
-}
 
 // 请求拼多多接口
 async function getPddGoodsDetail({ goodsId, uid, pid }) {
@@ -93,45 +68,7 @@ async function getPddGoodsDetail({ goodsId, uid, pid }) {
         throw new Error('拼多多商品不存在或接口返回失败');
     }
 
-    return normalizePddGoodsDetail(detail, goodsId);
+    return pddAdapter.normalizeGoodsDetail(detail, goodsId);
 }
-
-//格式化拼多多接口返回的字段
-function normalizePddGoodsDetail(item, goodsId) {
-  return {
-    platform: 'pdd',
-    goodsId: item.goods_sign || goodsId,
-    goodsName: item.goods_name || '',
-    images: item.goods_gallery_urls || [],
-    prices: {
-      marketPrice: toNumber(item.min_normal_price),
-      salePrice: toNumber(item.min_group_price),
-      couponPrice: toNumber(item.min_group_price_after_coupon),
-    },
-    commission: {
-      rate: toNumber(item.promotion_rate),
-      amount: toNumber(item.promotion_amount),
-    },
-    tags: item.goods_labels || [],
-    description: item.goods_desc || '',
-    promotionUrl: item.goods_zs_unit_generate_url || null,
-  };
-}
-
-//统一价格数字转换
-function toNumber(value) {
-  if (value === null || value === undefined || value === '') {
-    return 0;
-  }
-
-  const number = Number(value);
-
-  return Number.isFinite(number) ? number : 0;
-}
-
-
-
-
-
 
 module.exports = {getGoodsDetail}

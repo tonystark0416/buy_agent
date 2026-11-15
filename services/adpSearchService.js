@@ -6,41 +6,9 @@
 
 const vipService = require('./platforms/vipService');
 const pddService = require('./platforms/pddService');
+const vipAdapter = require('./adapters/vipAdapter');
+const pddAdapter = require('./adapters/pddAdapter');
 
-
-/**
- * 格式化唯品会的商品数据为统一格式
- * @param {*} item 
- * @returns 
- */
-function normalizeVipItem(item) {
-    return {
-        id: item.goodsId,
-        title: item.goodsName,
-        price: item.vipPrice,
-        imageUrl: item.goodsMainPicture,
-        commission: item.commissionRate || 0,
-        platform: 'vip',
-        // 其他需要的字段
-    }
-}
-
-/**
- * 格式化拼多多的商品数据为统一格式
- * @param {*} item 
- * @returns 
- */
-function normalizePddItem(item) {
-    return {
-        id: item.goods_sign,
-        title: item.goods_name,
-        price: item.min_group_price,
-        imageUrl: item.goods_image_url,
-        commission: item.promotion_rate || 0,
-        platform: 'pdd',
-        // 其他需要的字段
-    }
-}
 
 /**
  * 多平台搜索接口，聚合结果，合并返回
@@ -52,7 +20,6 @@ async function multipleSearchGoods({ activity_tags, keyword, page = 1, pageSize 
     // 这里可以根据需要调用不同平台的搜索接口，目前示例调用了 VIP 的搜索接口
     const promises = [];
     if (sources.includes('vip')) {
-        console.log({ keyword, page, pageSize, openid: uid, chanTag: pid })
         const vipResults = vipService.searchGoods({ keyword, page, pageSize, openid: uid, chanTag: pid });
         promises.push(vipResults);
     }
@@ -62,11 +29,10 @@ async function multipleSearchGoods({ activity_tags, keyword, page = 1, pageSize 
     }
     const [vipRes, pddRes] = await Promise.all(promises); //顺序要一致
 
-    const vipItems = vipRes.result?.goodsInfoList?.map(normalizeVipItem) || [];
-    const pddItems = pddRes.goods_search_response?.goods_list?.map(normalizePddItem) || [];
+    const vipItems = vipRes.result?.goodsInfoList?.map(vipAdapter.normalizeSearchItem) || [];
+    const pddItems = pddRes.goods_search_response?.goods_list?.map(pddAdapter.normalizeSearchItem) || [];
 
     const merged = [...vipItems, ...pddItems]; //合并两个转换后的结果
-    // console.log(merged)
     const total = merged.length;
 
     return {

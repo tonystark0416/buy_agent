@@ -17,12 +17,11 @@ const config = require('../../config/config.js');
  * @returns {String} 大写的 HMAC-MD5 签名
  */
 function getSign(appKey, format, method, service, timestamp, version, bisData, appSecret) {
-    sign = '';
+    let sign = '';
     sign += 'appKey' + appKey + 'format' + format + 'method' + method + 'service' + service + 'timestamp' + timestamp + 'version' + version + bisData;
     const hmac = crypto.createHmac('md5', appSecret);
     hmac.update(sign);
     const digest = hmac.digest('hex').toUpperCase();
-    //console.log(digest);
     return digest
 }
 
@@ -32,7 +31,7 @@ function getSign(appKey, format, method, service, timestamp, version, bisData, a
  * @returns 
  */
 function getQueryString(request) {
-    params = '';
+    let params = '';
     params += 'appKey=' + request.appKey + '&format=' + request.format + '&sign=' + request.sign + '&method=' + request.method + '&service=' + request.service + '&timestamp=' + request.timestamp + '&version=' + request.version
     return params;
 }
@@ -266,7 +265,6 @@ async function vipLinkCheck(content) {
 * @returns 返回连接数组
  */
 async function genByGoodsId({ goodsId, openId, chanTag, statParam, genAuthorityUrl = false, giftCode }) {
-    console.log('调用 VIP 生成推广链接接口，参数：', { goodsId, openId, chanTag, statParam, genAuthorityUrl, giftCode });
     const service = 'com.vip.adp.api.open.service.UnionUrlV2Service';
     const method = 'genByGoodsId';
     const bisData = {
@@ -316,7 +314,6 @@ async function genByVIPUrl({ urlList, openId, chanTag, statParam, genAuthorityUr
         }
     }
     const response = await vipOpenApiRequest(service, method, bisData);
-    console.log(response);
     return response
 }
 

@@ -1,40 +1,18 @@
 /**
  * @description banner服务，提供banner相关的功能接口
- * @author liuweizhao
- * @date 2024-06-01 
  */
 
 const bannerModel = require('../models/adpBannerModel');
-// const vipService = require('./platforms/vipService.js');
-// const meituanService = require('./platforms/meituanService.js');
-// const tranUrlService = require('./adpTranUrlService.js');
 
-const findBanner = async () => {
-    try {
-        const banner = await bannerModel.findBanner(2);
-        return banner;
-    } catch (error) {
-        console.error('Error in findBanner:', error);
-        throw error;
-    }
+/**
+ * 按类型查询 banner 列表
+ * @param {number} type 1=首页「最优惠活动」坑位，2=吃喝玩乐页 banner
+ */
+const findBannerByType = async (type) => {
+    const banner = await bannerModel.findBanner(type);
+    return banner;
 };
-
-
-const indexBannerList = async () => {
-    try {
-        const banner = await bannerModel.findBanner(1);
-        return banner;
-    } catch (error) {
-        console.error('Error in indexBannerList:', error);
-        throw error;
-    }
-
-}
-
-
 
 module.exports = {
-    findBanner,
-    indexBannerList
+    findBannerByType
 };
-

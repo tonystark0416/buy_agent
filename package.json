@@ -1,29 +1,23 @@
 {
   "name": "buy_agent",
   "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
-  "directories": {
-    "test": "test"
-  },
+  "description": "多平台 CPS 导购聚合后端（monorepo：根目录后端 + admin-web 后台前端 + clients/ C 端客户端）",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "sync:vip": "node job/vipOrderSync.js",
+    "sync:meituan": "node job/meituanOrderSync.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.16.0",
     "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "express-generator": "^4.16.1",
     "jsonwebtoken": "^9.0.3",
-    "moment": "^2.30.1",
-    "mysql2": "^3.22.3",
-    "node-cron": "^4.2.1",
-    "openai": "^6.35.0"
+    "mysql2": "^3.22.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

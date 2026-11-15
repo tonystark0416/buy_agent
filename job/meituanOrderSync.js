@@ -6,7 +6,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const { getOrderInfo, } = require('../services/platforms/meituanService');
-const { createAdpOrder, findOrder, updateOrder } = require('../models/adpOrder');
+const { createAdpOrder, findOrder, updateOrder } = require('../models/adpOrderModel');
 const { formatBeijing } = require('../utils/timeUtils');
 
 /**
@@ -166,7 +166,17 @@ async function pullOrdersByDateRange(startDate, endDate) {
 }
 
 
-(async () => {
-    const orders = await pullOrdersByDateRange('2026-09-01', '2026-09-12');
-    console.log('总订单数:', orders.length);
+// ================= 手动执行入口（CLI） =================
+// 用法: node job/meituanOrderSync.js [startDate] [endDate]
+//   node job/meituanOrderSync.js                    → 默认拉取昨天 ~ 今天
+//   node job/meituanOrderSync.js 2026-09-01 2026-09-12
+(function main() {
+    const [startDate, endDate] = process.argv.slice(2);
+    const fmt = (d) => d.toISOString().slice(0, 10);
+    const start = startDate || fmt(new Date(Date.now() - 24 * 3600 * 1000));
+    const end = endDate || fmt(new Date());
+    console.log(`[meituanOrderSync] 拉取区间: ${start} ~ ${end}`);
+    pullOrdersByDateRange(start, end)
+        .then((orders) => console.log('总订单数:', orders.length))
+        .catch((err) => { console.error(err); process.exitCode = 1; });
 })();

@@ -7,6 +7,7 @@
 //引入service
 const pdd = require('./platforms/pddService.js');
 const vip = require('./platforms/vipService.js');
+const config = require('../config/config.js');
 
 
 /**
@@ -27,7 +28,7 @@ async function genAuthUrl({ uid, pid, platform }) {
 
   //拼多多
   if (platform === 'pdd') {
-    const result = await pdd.genAuthUrl({ uid: uid, pid: '43384525_317172887' });
+    const result = await pdd.genAuthUrl({ uid: uid, pid: config.cps.pddPid });
 
     if (result.rp_promotion_url_generate_response) {
       // return result.rp_promotion_url_generate_response;
@@ -72,7 +73,7 @@ async function checkAuth({ uid, pid, platform }) {
 
   //拼多多
   if (platform === 'pdd') {
-    const result = await pdd.checkAuth({ uid: uid, pid: '43384525_317172887' });
+    const result = await pdd.checkAuth({ uid: uid, pid: config.cps.pddPid });
     if (result.authority_query_response.bind) {
       resultCheck.isAuth = true;
     } else {

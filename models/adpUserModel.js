@@ -29,7 +29,6 @@ async function updateUserInfo(user,openid) {
 
 
 async function createUser(phone, password =null, openid = null) {
-    console.log(phone, password, openid);
     const [result] = await pool.execute('INSERT INTO adp_user (phone, password, openid) VALUES (?, ?, ?)', [phone, password, openid]);
     return { id: result.insertId, phone};
 }
