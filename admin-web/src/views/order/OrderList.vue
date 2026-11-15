@@ -31,6 +31,9 @@
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
           <el-button :icon="Refresh" @click="handleReset">重置</el-button>
+          <el-button type="warning" plain :icon="Download" @click="openSyncDialog">
+            手动同步<el-tag v-if="runningBanner" type="warning" size="small" effect="dark" style="margin-left:6px">{{ runningBanner.platformLabel }}中</el-tag>
+          </el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -132,13 +135,70 @@
         <el-empty v-else description="未关联用户" :image-size="60" />
       </template>
     </el-drawer>
+
+    <!-- 手动同步对话框 -->
+    <el-dialog v-model="syncVisible" title="手动同步订单" width="480px" :close-on-click-modal="false" @closed="stopPolling">
+      <el-form label-width="80px">
+        <el-form-item label="平台">
+          <el-radio-group v-model="syncForm.platform" :disabled="syncTaskRunning">
+            <el-radio-button value="vip">唯品会</el-radio-button>
+            <el-radio-button value="meituan">美团</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="时间区间">
+          <el-date-picker
+            v-model="syncDateRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            :clearable="false"
+            :disabled="syncTaskRunning"
+            :disabled-date="syncDisabledDate"
+            @calendar-change="onCalendarChange"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <div class="sync-tip">
+          单次最长 {{ maxRangeDays }} 天；按小时逐段拉取，跨天任务耗时较长（30 天约 10~20 分钟）。
+          运行中可关闭弹窗，任务会在后台继续，完成后回来打开本弹窗即可查看结果。
+        </div>
+
+        <template v-if="syncTask">
+          <el-divider content-position="left">{{ syncTaskLabel }}</el-divider>
+          <el-progress
+            :percentage="syncProgressPercent"
+            :status="syncProgressStatus"
+            :stroke-width="14"
+          />
+          <div class="sync-progress-detail">
+            已完成 {{ syncTask.progress.done }} / {{ syncTask.progress.total }} 个小时段
+          </div>
+          <div class="sync-result" v-if="syncTask.status === 'success' && syncTask.result">
+            <el-tag type="success" effect="dark">同步完成</el-tag>
+            拉取 {{ syncTask.result.fetched }} 笔 · 新增 {{ syncTask.result.insertCount }} ·
+            更新 {{ syncTask.result.updateCount }} · 出错 {{ syncTask.result.errorCount }}
+            <span v-if="syncTask.durationMs">（耗时 {{ Math.round(syncTask.durationMs / 1000) }} 秒）</span>
+          </div>
+          <el-alert v-if="syncTask.status === 'failed'" type="error" :title="syncTask.error || '同步失败'" :closable="false" />
+        </template>
+      </el-form>
+      <template #footer>
+        <template v-if="!syncTaskRunning">
+          <el-button @click="syncVisible = false">关闭</el-button>
+          <el-button type="primary" :loading="starting" @click="handleStartSync">开始同步</el-button>
+        </template>
+        <el-button v-else @click="syncVisible = false">后台运行，关闭弹窗</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
-import { getOrderList, getOrderDetail } from '../../api/order'
+import { reactive, ref, computed, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Search, Refresh, Download } from '@element-plus/icons-vue'
+import { getOrderList, getOrderDetail, startOrderSync, getSyncStatus } from '../../api/order'
 
 const PLATFORMS = [
   { value: 'vip', label: '唯品会' },
@@ -229,7 +289,134 @@ async function openDetail(orderSn) {
   }
 }
 
+// ================= 手动同步订单 =================
+const syncVisible = ref(false)
+const syncForm = reactive({ platform: 'vip' })
+const syncDateRange = ref(null)
+const maxRangeDays = ref(30)
+const syncTask = ref(null)      // 当前展示的任务（运行中或刚完成）
+const starting = ref(false)
+const runningBanner = ref(null) // 页面顶栏「运行中」角标
+let pollTimer = null
+let pickingFirstDate = null     // 日历选第一个日期时锁定 30 天可选范围
+
+const syncTaskRunning = computed(() => syncTask.value?.status === 'running')
+const syncProgressPercent = computed(() => {
+  const p = syncTask.value?.progress
+  if (!p || !p.total) return 0
+  return Math.min(100, Math.round((p.done / p.total) * 100))
+})
+const syncProgressStatus = computed(() => {
+  const s = syncTask.value?.status
+  if (s === 'success') return 'success'
+  if (s === 'failed') return 'exception'
+  return undefined
+})
+const syncTaskLabel = computed(() => {
+  if (!syncTask.value) return ''
+  return `${syncTask.value.platformLabel} · ${syncTask.value.startDate} ~ ${syncTask.value.endDate}`
+})
+
+/** 日历禁用规则：不晚于今天；选定第一端后限制跨度 ≤ maxRangeDays */
+function syncDisabledDate(d) {
+  const day = new Date(d); day.setHours(23, 59, 59, 999)
+  const today = new Date(); today.setHours(23, 59, 59, 999)
+  if (day > today) return true
+  if (pickingFirstDate) {
+    const anchor = new Date(pickingFirstDate)
+    const min = new Date(anchor); min.setDate(min.getDate() - (maxRangeDays.value - 1)); min.setHours(0, 0, 0, 0)
+    const max = new Date(anchor); max.setDate(max.getDate() + (maxRangeDays.value - 1)); max.setHours(23, 59, 59, 999)
+    return day < min || day > max
+  }
+  return false
+}
+
+function onCalendarChange(dates) {
+  pickingFirstDate = dates && dates[0] ? dates[0] : null
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(async () => {
+    if (!syncTask.value?.id) return stopPolling()
+    try {
+      const t = await getSyncStatus(syncTask.value.id)
+      syncTask.value = t
+      if (t.status !== 'running') {
+        stopPolling()
+        if (t.status === 'success') {
+          ElMessage.success(`${t.platformLabel}订单同步完成`)
+          loadList(1) // 刷新列表
+        }
+      }
+    } catch (e) {
+      stopPolling()
+    }
+  }, 2000)
+}
+
+async function handleStartSync() {
+  if (!syncDateRange.value?.length) {
+    ElMessage.warning('请选择时间区间')
+    return
+  }
+  const [startDate, endDate] = syncDateRange.value
+  starting.value = true
+  try {
+    syncTask.value = await startOrderSync({ platform: syncForm.platform, startDate, endDate })
+    startPolling()
+  } catch (e) {
+    // 错误已由拦截器统一提示
+  } finally {
+    starting.value = false
+  }
+}
+
+async function openSyncDialog() {
+  syncVisible.value = true
+  // 默认区间：最近 7 天
+  if (!syncDateRange.value) {
+    const end = new Date()
+    const start = new Date(Date.now() - 6 * 24 * 3600 * 1000)
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    syncDateRange.value = [fmt(start), fmt(end)]
+  }
+  // 恢复运行中/最近任务状态（页面刷新或关闭弹窗后再打开）
+  try {
+    const data = await getSyncStatus()
+    maxRangeDays.value = data.maxRangeDays || 30
+    const running = data.tasks.find((t) => t.status === 'running')
+    if (running) {
+      runningBanner.value = running
+      syncTask.value = running
+      syncForm.platform = running.platform
+      syncDateRange.value = [running.startDate, running.endDate]
+      startPolling()
+    } else {
+      runningBanner.value = null
+      if (syncTask.value && syncTask.value.status === 'running') {
+        // 刚才在跑的任务已结束（关闭弹窗期间完成）
+        const last = data.tasks.find((t) => t.id === syncTask.value.id)
+        if (last) {
+          syncTask.value = last
+          if (last.status === 'success') {
+            ElMessage.success(`${last.platformLabel}订单同步完成`)
+            loadList(1)
+          }
+        } else {
+          syncTask.value = null
+        }
+      }
+    }
+  } catch (e) { /* 忽略，保持默认 */ }
+}
+
 onMounted(() => loadList())
+onUnmounted(stopPolling)
 </script>
 
 <style scoped>
@@ -278,5 +465,28 @@ onMounted(() => loadList())
   width: 200px;
   height: 200px;
   border-radius: 6px;
+}
+.sync-tip {
+  margin: 0 0 8px 80px;
+  padding: 8px 12px;
+  background: #fdf6ec;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #b88230;
+  line-height: 1.6;
+}
+.sync-progress-detail {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+.sync-result {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #606266;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

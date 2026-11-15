@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.13
-- 更新日期：2026-11-15
+- 文档版本：v1.15
+- 更新日期：2026-11-16
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
 
@@ -205,6 +205,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | `/api/admin/auth/profile` | GET | 是 | 当前管理员信息 |
 | `/api/admin/order/list` | GET | 是 | 订单多条件分页查询：platform（逗号分隔多选）、status、orderSn 精确、goodsName 模糊、uid、startTime/endTime 区间、sortField/sortOrder（白名单排序）；pageSize 上限 100 |
 | `/api/admin/order/detail` | GET | 是 | 订单详情 + 关联用户信息 |
+| `/api/admin/order/sync` | POST | 是+写权限 | **手动同步订单**（2026-11-16 新增）：{ platform: 'vip'\|'meituan', startDate, endDate }（YYYY-MM-DD，最长 30 天，不允许未来日期）；异步任务模式，立即返回 taskId；同平台互斥（400），异平台可并行；入库按 order_sn upsert 幂等 |
+| `/api/admin/order/sync/status` | GET | 是 | 同步任务状态：传 taskId 查单任务（status: running/success/failed + progress 逐小时分段进度 + result 入库统计）；不传返回最近 20 条任务列表 + maxRangeDays |
 | `/api/admin/user/list` | GET | 是 | 用户分页查询：phone 模糊、id 精确、openid 精确；**任何用户查询均不返回 password 字段** |
 | `/api/admin/user/detail` | GET | 是 | 用户详情 + 按平台订单汇总（订单数/金额/佣金） |
 | `/api/admin/goods/list` | GET | 是 | 运营选品分页查询（adp_goods 表）：platform 筛选（pdd/vip/meituan 白名单）、goodsName 模糊搜索（2026-10-01 新增） |
@@ -218,7 +220,9 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **统一响应结构**（后台模块率先落地，后续可推广至 C 端，关联 B-10）：`{ code: 0, msg: 'ok', data: ... }`；错误 `{ code: 非0, msg, data: null }`。后台控制器自行捕获错误返回结构化 JSON，不依赖原有全局错误处理。
 
-**前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）、商品管理（筛选 + 表格 + 新增/编辑弹窗 + 删除二次确认；readonly 角色隐藏写入口）（商品管理为 2026-10-01 新增）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
+**前端页面**（`admin-web/`）：登录页、订单管理（筛选表单 + 表格分页 + 详情抽屉 + **手动同步弹窗（2026-11-16 新增）**：平台二选一/日期区间选择器（30 天跨度限制）/进度条轮询（2s）/完成统计提示/关闭弹窗后台继续运行）、用户管理（筛选 + 表格 + 详情抽屉：汇总卡片/平台分布/最近 10 单）、商品管理（筛选 + 表格 + 新增/编辑弹窗 + 删除二次确认；readonly 角色隐藏写入口）（商品管理为 2026-10-01 新增）。路由守卫校验 `admin_token`，axios 拦截器统一处理 401 跳登录。
+
+**手动同步实现说明（2026-11-16 新增）**：任务管理器 `services/admin/orderSyncTaskService.js`（内存态，进程重启任务丢失、重发即可，幂等无害）；复用 job 脚本 `pullOrdersByDateRange(startDate, endDate, onProgress)`——按平台 API 1 小时窗口约束逐小时分段「拉一段入一段库」并回调进度，30 天区间 ≈ 720 个小时段（约 10~20 分钟）；任务跑在 API 进程内，与常驻 worker（5 分钟增量）并发写安全（order_sn upsert）。耗时提示：UI 已标注跨天任务耗时较长，建议关闭弹窗后台运行。
 
 **部署方式（2026-09-30 起）**：Express 直接托管前端——`app.js` 中 `express.static(admin-web/dist)` + `/admin` SPA 回退，构建产物上传至服务器 `admin-web/dist` 即可，访问 `http://域名/admin`；线上经宝塔 Node项目运行，域名由宝塔自动反代到 3000 端口。开发：后端 `node server.js`，前端 `cd admin-web && npm run dev`（5173 端口，代理到 3000，访问 `http://localhost:5173/admin/`）。
 
@@ -324,7 +328,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 |---|---|---|---|
 | B-1 | 淘宝 CPS 服务接入路由（转链/详情/物料推荐），补齐 `tb_cps_key` 环境变量 | 高 | 待排期 |
 | B-2 | 京东 CPS 服务接入路由 | 中 | 待排期 |
-| B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + ~~恢复 cron 定时~~ + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 大部分完成（2026-11-15 v1.9 CLI 传参上线；**2026-11-15 v1.13 cron 定时上线**：PM2 `ecosystem.config.js` 承担调度，唯品会每天 02:00/14:00、美团 02:30/14:30（Asia/Shanghai），一次性进程跑完即退由 PM2 cron 再拉起，job 脚本已补显式 `process.exit`；剩余：淘宝/京东平台接入后按同模式加进程即可） |
+| B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + ~~恢复 cron 定时~~ + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 大部分完成（2026-11-15 v1.9 CLI 传参上线；2026-11-15 v1.13 PM2 cron_restart 上线；**2026-11-16 v1.14 升级为 5 分钟增量**：常驻 worker `buy-agent-sync-worker` 每轮拉最近 2 小时（按更新时间维度，两平台 API 1 小时窗口约束下自动按小时分段）+ 每天 03:00 全量兜底；VIP 拉单取消 status 写死、全状态拉取；剩余：淘宝/京东平台接入后按同模式扩展） |
 | B-4 | JWT 鉴权中间件接入受保护接口（订单、转链等） | 高 | 待排期 |
 | B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | ✅ 已完成（2026-11-15：AI 模块已删、`JWT_SECRET` 与 DB 配置强制走 .env（fail-fast）、CPS 业务标识集中收敛 config；历史泄漏密钥已全部处置——DeepSeek key 已在平台作废、DB 密码与 JWT_SECRET 已轮换、仓库已转私有；文档中明文密钥值已清除。可选后续：BFG 清洗 git 历史） |
 | B-6 | ~~sql/init.sql 补全正式 DDL 并与代码对齐~~ | 高 | ✅ 已完成（2026-11-15：随分库迁移，正式 DDL 导出为 `sql/cps-schema.sql`（线上库原样导出，6 张表），过时的 init.sql 已删除） |
@@ -340,6 +344,8 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-16 | v1.15 | **后台订单管理：手动同步订单功能**。① 新增 `POST /api/admin/order/sync`（platform: vip/meituan 二选一，日期区间最长 30 天、不允许未来日期，异步任务立即返回 taskId，同平台互斥 400、异平台可并行，order_sn upsert 幂等）与 `GET /api/admin/order/sync/status`（单任务进度 / 最近任务列表）；② 任务管理器 `services/admin/orderSyncTaskService.js`（内存态，进程重启任务丢失可重发，幂等无害）；③ job 两脚本 `pullOrdersByDateRange` 重构：支持 onProgress 进度回调、逐小时分段「拉一段入一段库」，顺带修复美团 job 新旧 `pullOrdersByDateRange` 重名冲突（旧版引用已删函数导致同步必失败，E2E 抓出）；④ 订单管理页新增手动同步弹窗：平台单选/日期选择器（30 天跨度动态禁用 + 不允许未来日期）/进度条 2s 轮询/完成统计（拉取/新增/更新/出错/耗时）/可关弹窗后台继续运行，完成后自动刷新列表；admin-web 构建验证通过；⑤ E2E 实测全过：参数校验 400×3、发起 running、同平台互斥 400、异平台并行、进度 24/24 → success、任务列表 | 待提交 |
+| 2026-11-16 | v1.14 | **订单同步升级：5 分钟增量 + 常驻 worker + 全状态拉取**。① 架构调整：v1.13 嘅「一次性进程 + cron_restart（每天两次）」升级为**常驻 worker**（5 分钟频率下常驻更优：无 288 次进程冷启动、防重叠守卫、故障不跨轮累积）——`job/orderSyncWorker.js`（新，PM2 `buy-agent-sync-worker`），ecosystem 两个一次性 sync 进程合并为一个 worker；② **增量窗口**：每轮拉最近 2 小时（`SYNC_RECENT_HOURS`/`SYNC_INTERVAL_MINUTES` 可调），VIP 按 `updateTimeStart/End`、美团按 `queryTimeType: 2`（**更新时间维度**，新单与老订单状态变化都覆盖；两平台 API 单次查询限 1 小时，逐小时分段合规），每日约 1,900 请求/平台；③ **每日 03:00 兜底**：worker 每天全量补拉昨天~今天一次（内部逐小时分段，窗口合规），防 API 数据延迟漏单；④ **VIP 拉单取消 status 写死**（原 `status: 0` 仅拉不合格单，为存量问题），不传即全状态（0/1/2）；`vipService.orderList` 支持 UpdateTime 透传、status 未传时字段省略；⑤ job 两脚本新增 `syncRecent()` 导出、CLI 入口 `require.main` 守卫（补拉功能不变）；⑥ 双平台 syncRecent 真 API 实测通过（2h 窗口逐小时分段、0 新单无报错）。**服务器部署：`pm2 delete buy-agent-vip-sync buy-agent-meituan-sync`（如有）→ `pm2 start ecosystem.config.js --only buy-agent-sync-worker` → 建议手动跑一次全量补拉 `node job/vipOrderSync.js` 回补历史全状态订单** | 待提交 |
 | 2026-11-15 | v1.13 | **订单同步定时任务上线（PM2）**。① 新增 `ecosystem.config.js`（PM2 配置，入库可复现）：3 个进程——`buy-agent-api`（API 常驻）、`buy-agent-vip-sync`（每天 02:00/14:00）、`buy-agent-meituan-sync`（每天 02:30/14:30，Asia/Shanghai，与唯品会错开）；② 同步任务采用 PM2「一次性进程 + cron_restart」模式：启动 → 拉昨天~今天订单入库 → 自动退出 → 到点再拉起，每天两拉覆盖 CPS 订单状态变化（付款→结算/失效）；③ job 两个脚本补显式 `process.exit(0/1)`（MySQL 连接池阻塞事件循环，一次性模式必须显式退出），本地实测两任务跑完 exit=0；④ 日志落 `logs/pm2/*.log`（带时间戳，logs/ 已 ignore）。**注意：API 若已由宝塔 PM2 管理，用 `--only` 只启动同步任务，勿双开 3000 端口**。补拉历史日期仍用 CLI。B-3 大部分完成 | 待提交 |
 | 2026-11-15 | v1.12 | **登录链路修复与验证码通道预留**。① **根因修复 P1-4**：`adp_user` 表物理缺失 `openid` 列（mike 库时代即缺，分库原样带入），openid 登录/绑定恒报 `Unknown column 'openid'`——已补列 `VARCHAR(128)` + `idx_openid` 索引并重新导出 `cps-schema.sql`；② 小程序 `app.js` 成功判定修复：不认 v2 `{code:200}` 导致已绑定用户也被判登录失败（api.js 注释声称已改但实际漏改），现 `code===200`/`result`/`success` 三格式兼容，登录成功显式置 `needPhoneLogin=false`，并修正 catch 分支不再误触发手机号弹窗；③ 5 个页面（index/orders/goods/life/meituan-goods）登录回调成功判定统一 v2 兼容；④ **验证码登录通道（iOS/Android App 预留）**：新增 `POST /api/user/sendVerificationCode`（6 位码、5min 有效、60s 重发冷却、SMS 服务商集成点、未接服务商时透出 devCode 供联调）与 `POST /api/user/loginByCode`（未注册自动注册、携带 openid 自动绑定、验证码一次性防重放、单实例内存存储）；config 新增可选 `SMS_*` 环境变量段；小程序 api 层同步预留 `sendVerificationCode`/`loginByCode`（页面 UI 暂不接入）；⑤ 冒烟 7 项全过：未绑定 400/发码/限频 400/错码 400/注册绑定 200/直登 200/legacy 兼容，测试数据已清理 | 待提交 |
 | 2026-11-15 | v1.11 | **[小程序] UI 整体改版为 iOS / Apple HIG 风格**：小程序端 v0.16.0——全局设计系统（设计令牌 + 共享弹窗/加载/返回按钮类）、7 页 wxss 全量重写（分段控件/胶囊按钮/毛玻璃底栏/hairline 分组列表）、tabBar 系统蓝 + 图标统一重新着色（PIL 脚本）、移除橙色渐变 hero；页面结构 wxml 与业务逻辑 js 零改动，纯样式层重构。详细清单见小程序 REQUIREMENTS.md v0.16.0。后端无改动 | 待提交 |

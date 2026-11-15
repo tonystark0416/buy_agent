@@ -10,13 +10,13 @@
  *
  * 进程说明:
  * - buy-agent-api: API 常驻服务（3000 端口）。
- *   ⚠ 若 API 目前已由宝塔面板的 PM2 管理，请勿双开——要么只启动两个同步任务
- *     （pm2 start ecosystem.config.js --only buy-agent-vip-sync 后再启动 meituan-sync），
+ *   ⚠ 若 API 目前已由宝塔面板的 PM2 管理，请勿双开——要么用 --only 只启动 sync-worker，
  *     要么停掉宝塔那个后统一切到本文件管理（推荐，配置进 git 可复现）。
- * - buy-agent-vip-sync / buy-agent-meituan-sync: 订单同步为「一次性任务」进程——
- *   启动 → 拉取昨天~今天订单入库 → 显式 process.exit 退出 → 由 PM2 cron_restart 到点再拉起。
- *   cron_schedule 每天两次（唯品会 02:00/14:00、美团 02:30/14:30，Asia/Shanghai），
- *   拉两次是因为 CPS 订单状态（已付款→已结算/失效）会变化，覆盖早晚会各一次。
+ * - buy-agent-sync-worker: 订单同步常驻工作进程（唯品会 + 美团合一）——
+ *   每 5 分钟增量拉取最近 2 小时订单（按更新时间维度，新单与状态变化都覆盖；
+ *   两平台 API 单次查询限 1 小时，自动按小时分段），每天 03:00 后全量兜底补拉一次昨天~今天。
+ *   间隔/窗口可用环境变量 SYNC_INTERVAL_MINUTES / SYNC_RECENT_HOURS 调整。
+ *   手动立即触发一轮: pm2 restart buy-agent-sync-worker
  *   补拉历史日期仍用 CLI: node job/vipOrderSync.js 2026-09-26 2026-09-30
  *
  * 日志: logs/pm2/*.log（time: true 每行带时间戳；logs/ 已在 .gitignore）
@@ -37,27 +37,18 @@ module.exports = {
       time: true,
     },
     {
-      name: 'buy-agent-vip-sync',
-      script: 'job/vipOrderSync.js',
+      name: 'buy-agent-sync-worker',
+      script: 'job/orderSyncWorker.js',
       cwd: __dirname,
-      autorestart: false,               // 一次性任务：跑完即退，到点由 cron 再拉起
-      cron_restart: '0 2,14 * * *',     // 每天 02:00 / 14:00
-      cron_timezone: 'Asia/Shanghai',
-      env: { NODE_ENV: 'production' },
-      out_file: 'logs/pm2/vip-sync-out.log',
-      error_file: 'logs/pm2/vip-sync-error.log',
-      time: true,
-    },
-    {
-      name: 'buy-agent-meituan-sync',
-      script: 'job/meituanOrderSync.js',
-      cwd: __dirname,
-      autorestart: false,
-      cron_restart: '30 2,14 * * *',    // 每天 02:30 / 14:30（与唯品会错开）
-      cron_timezone: 'Asia/Shanghai',
-      env: { NODE_ENV: 'production' },
-      out_file: 'logs/pm2/meituan-sync-out.log',
-      error_file: 'logs/pm2/meituan-sync-error.log',
+      autorestart: true,                 // 常驻进程，崩溃自动拉起
+      max_memory_restart: '200M',
+      env: {
+        NODE_ENV: 'production',
+        SYNC_INTERVAL_MINUTES: '5',      // 同步间隔（分钟）
+        SYNC_RECENT_HOURS: '2',          // 增量回溯窗口（小时）
+      },
+      out_file: 'logs/pm2/sync-worker-out.log',
+      error_file: 'logs/pm2/sync-worker-error.log',
       time: true,
     },
   ],

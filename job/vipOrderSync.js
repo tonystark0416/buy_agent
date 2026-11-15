@@ -19,38 +19,6 @@ const { formatBeijing } = require('../utils/timeUtils');
  * @param {string} endDate   - 结束日期，格式：YYYY-MM-DD
  * @returns {Promise<Array>}
  */
-async function fetchOrdersByDateRange(startDate, endDate) {
-    const start = new Date(`${startDate} 00:00:00`);
-    const end = new Date(`${endDate} 23:59:59.999`);
-
-    const allOrders = [];
-    let cursor = new Date(start);
-
-    while (cursor <= end) {
-        const startTs = cursor.getTime();
-        const endTs = Math.min(startTs + 60 * 60 * 1000, end.getTime());
-
-        console.log(`[按日期范围] 拉取 ${new Date(startTs).toLocaleString()} ~ ${new Date(endTs).toLocaleString()}`);
-
-        const orders = await fetchOrdersByTimeRange(startTs, endTs);
-        allOrders.push(...orders);
-
-        cursor = new Date(startTs + 60 * 60 * 1000);
-    }
-
-    // 去重：防止订单在边界时间重复
-    const uniqueMap = new Map();
-    for (const order of allOrders) {
-        const key = order.orderSn || order.orderId || order.id;
-        if (key && !uniqueMap.has(key)) {
-            uniqueMap.set(key, order);
-        }
-    }
-
-    return [...uniqueMap.values()];
-}
-
-
 
 
 
@@ -63,7 +31,7 @@ async function fetchOrdersByDateRange(startDate, endDate) {
  * @param {number} status         - 订单状态（可选，0-不合格，1-待定，2-已完结）
  * @returns {Promise<Array>}      - 订单列表
  */
-async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
+async function fetchOrdersByTimeRange(startTimestamp, endTimestamp, { byUpdateTime = false } = {}) {
 
     let allOrders = []; //整体订单数组
     let page = 1;
@@ -72,12 +40,18 @@ async function fetchOrdersByTimeRange(startTimestamp, endTimestamp) {
 
     while (hasMore) {
         const requestParams = {
-            status: 0,
-            orderTimeStart: startTimestamp,
-            orderTimeEnd: endTimestamp,
+            // 状态不下发（不设置 = 全部状态：0-不合格 / 1-待定 / 2-已完结 都拉）
             page,
             pageSize
         };
+        // 查询维度：下单时间（全量补拉）/ 更新时间（增量同步，可捕获老订单状态变化）
+        if (byUpdateTime) {
+            requestParams.updateTimeStart = startTimestamp;
+            requestParams.updateTimeEnd = endTimestamp;
+        } else {
+            requestParams.orderTimeStart = startTimestamp;
+            requestParams.orderTimeEnd = endTimestamp;
+        }
         console.log(`[正在请求] 第 ${page} 页`);
 
         const response = await orderList(requestParams);
@@ -184,46 +158,111 @@ async function pullTask(currentTs) {
 
 
 /**
- * 按日期范围拉取订单，并写入数据库
- * @param {string} startDate
- * @param {string} endDate
+ * 按日期范围拉取订单并写入数据库（逐小时分段拉取+逐段入库，支持进度回调）
+ * 平台 API 单次查询区间不超过 1 小时，此处自动按小时拆分，天然合规
+ * @param {string} startDate - YYYY-MM-DD
+ * @param {string} endDate   - YYYY-MM-DD
+ * @param {Function} [onProgress] - 进度回调 ({ done, total, totals })，每完成一个小时段触发一次
+ * @returns {Promise<{fetched:number, insertCount:number, updateCount:number, errorCount:number}>}
  */
-async function pullOrdersByDateRange(startDate, endDate) {
+async function pullOrdersByDateRange(startDate, endDate, onProgress) {
+    const start = new Date(`${startDate} 00:00:00`);
+    const end = new Date(`${endDate} 23:59:59.999`);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new Error('日期格式不正确（应为 YYYY-MM-DD）');
+    }
+    if (start > end) {
+        throw new Error('开始日期不能晚于结束日期');
+    }
+
+    const totalSegments = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (60 * 60 * 1000)));
+    const totals = { fetched: 0, insertCount: 0, updateCount: 0, errorCount: 0 };
+    let doneSegments = 0;
+    let cursor = start.getTime();
+
     try {
-        const orders = await fetchOrdersByDateRange(startDate, endDate);
+        while (cursor < end.getTime()) {
+            const segEnd = Math.min(cursor + 60 * 60 * 1000, end.getTime());
+            const orders = await fetchOrdersByTimeRange(cursor, segEnd);
 
-        if (!orders.length) {
-            console.log(`[日期范围] ${startDate} ~ ${endDate} 没有订单`);
-            return [];
+            if (orders.length) {
+                const stats = await saveOrdersToDatabase(orders);
+                totals.fetched += orders.length;
+                totals.insertCount += stats.insertCount;
+                totals.updateCount += stats.updateCount;
+                totals.errorCount += stats.errorCount;
+            }
+
+            cursor = segEnd;
+            doneSegments++;
+            if (typeof onProgress === 'function') {
+                onProgress({ done: doneSegments, total: totalSegments, totals });
+            }
         }
-
-        const stats = await saveOrdersToDatabase(orders);
-        console.log('[日期范围] 入库统计:', stats);
-
-        return orders;
     } catch (error) {
         console.error('[日期范围] 拉取失败:', error);
         throw error;
     }
+
+    if (totals.fetched === 0) {
+        console.log(`[日期范围] ${startDate} ~ ${endDate} 没有订单`);
+    }
+    console.log('[日期范围] 入库统计:', totals);
+    return totals;
 }
 
 
-// ================= 执行入口（CLI 手动 + PM2 定时） =================
-// 用法: node job/vipOrderSync.js [startDate] [endDate]
-//   node job/vipOrderSync.js                    → 默认拉取昨天 ~ 今天
-//   node job/vipOrderSync.js 2026-09-26 2026-09-30
-// 定时调度: 由 PM2 ecosystem.config.js cron_restart 承担（每天 02:00/14:00，Asia/Shanghai）
-(function main() {
+// ================= 增量同步入口（供常驻 worker 每 5 分钟调用） =================
+/**
+ * 拉取最近 N 小时的订单并入库（增量窗口：新订单 + 状态变化都覆盖）
+ * @param {number} hoursBack - 往前回溯小时数（默认 2，需大于同步间隔才能不漏单）
+ * @returns {Promise<{fetched: number, stats: Object}>}
+ */
+async function syncRecent(hoursBack = 2) {
+    const endTs = Date.now();
+    const startTs = endTs - hoursBack * 3600 * 1000;
+
+    const allOrders = [];
+    let cursor = startTs;
+    while (cursor < endTs) {
+        const segEnd = Math.min(cursor + 60 * 60 * 1000, endTs);
+        // 按更新时间查询：新订单与老订单状态变化（待定→已完结等）都能被增量窗口捕获
+        const orders = await fetchOrdersByTimeRange(cursor, segEnd, { byUpdateTime: true });
+        allOrders.push(...orders);
+        cursor = segEnd;
+    }
+
+    // 去重（订单可能在小时边界重复）
+    const uniqueMap = new Map();
+    for (const order of allOrders) {
+        const key = order.orderSn || order.orderId || order.id;
+        if (key && !uniqueMap.has(key)) {
+            uniqueMap.set(key, order);
+        }
+    }
+    const unique = [...uniqueMap.values()];
+
+    const stats = unique.length
+        ? await saveOrdersToDatabase(unique)
+        : { insertCount: 0, updateCount: 0, errorCount: 0 };
+    return { fetched: unique.length, stats };
+}
+
+module.exports = { syncRecent, pullOrdersByDateRange };
+
+// ================= CLI 手动执行入口 =================
+// 用法: node job/vipOrderSync.js [startDate] [endDate]（补拉历史，如 2026-09-26 2026-09-30）
+// 定时增量同步: 由常驻进程 job/orderSyncWorker.js 调度（PM2: buy-agent-sync-worker）
+if (require.main === module) {
     const [startDate, endDate] = process.argv.slice(2);
     const fmt = (d) => d.toISOString().slice(0, 10);
     const start = startDate || fmt(new Date(Date.now() - 24 * 3600 * 1000));
     const end = endDate || fmt(new Date());
     console.log(`[vipOrderSync] 拉取区间: ${start} ~ ${end}`);
     pullOrdersByDateRange(start, end)
-        .then((orders) => {
-            console.log('总订单数:', orders.length);
-            // 显式退出：MySQL 连接池会阻塞事件循环，PM2 一次性任务模式（跑完即退 + cron 再拉起）依赖进程正常退出
+        .then((totals) => {
+            console.log('总订单数:', totals.fetched, '入库:', JSON.stringify(totals));
             process.exit(0);
         })
         .catch((err) => { console.error(err); process.exit(1); });
-})();
+}

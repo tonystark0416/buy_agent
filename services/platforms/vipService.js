@@ -363,15 +363,19 @@ async function createGiftCoupon(goodsId, giftName, amount, totalCount, activityS
  * @returns 返回订单列表数组
  * 订单接口的调用频率限制：每个应用每分钟调用不超过10次，每次调用返回的数据量不超过100条。
  */
-async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd }) {
-    // console.log('调用 VIP 订单接口，参数：', { status, page, pageSize, orderTimeStart, orderTimeEnd });
+async function orderList({ status, page, pageSize, orderTimeStart, orderTimeEnd, updateTimeStart, updateTimeEnd }) {
+    // console.log('调用 VIP 订单接口，参数：', { status, page, pageSize, orderTimeStart, orderTimeEnd, updateTimeStart, updateTimeEnd });
     const service = 'com.vip.adp.api.open.service.UnionOrderV2Service';
     const method = 'orderList';
     const bisData = {
         queryModel: {
-            status: status || null,  //订单状态:0-不合格，1-待定，2-已完结，该参数不设置默认代表全部状态
-            orderTimeStart: Date.parse(new Date(orderTimeStart)),
-            orderTimeEnd: Date.parse(new Date(orderTimeEnd)),
+            // 订单状态:0-不合格，1-待定，2-已完结；不设置（undefined）代表拉取全部状态，字段不透传避免签名歧义
+            ...(status !== undefined ? { status } : {}),
+            // 查询时间区间必传其一（OrderTime 或 UpdateTime），最大查询时间区间不超过 1 小时（唯品会文档约束）
+            ...(orderTimeStart ? { orderTimeStart: Date.parse(new Date(orderTimeStart)) } : {}),
+            ...(orderTimeEnd ? { orderTimeEnd: Date.parse(new Date(orderTimeEnd)) } : {}),
+            ...(updateTimeStart ? { updateTimeStart: Date.parse(new Date(updateTimeStart)) } : {}),
+            ...(updateTimeEnd ? { updateTimeEnd: Date.parse(new Date(updateTimeEnd)) } : {}),
             page: page,
             pageSize: pageSize,
             requestId: "mike" + Date.parse(new Date()),
