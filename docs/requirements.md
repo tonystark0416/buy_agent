@@ -274,7 +274,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 变量 | 用途 |
 |---|---|
 | `PORT` / `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 服务与 MySQL |
-| `JWT_SECRET` / `JWT_EXPIRES_IN` | **C 端用户 JWT 密钥/有效期**（2026-11-15 起必填，缺失启动即报错，fail-fast；本地 .env 已配 `19910416`，**服务器 .env 需同步添加后再部署**） |
+| `JWT_SECRET` / `JWT_EXPIRES_IN` | **C 端用户 JWT 密钥/有效期**（2026-11-15 起必填，缺失启动即报错，fail-fast；**服务器 .env 需配置后再部署**。注：旧值曾泄漏于 git 历史，已按 B-5 轮换，本文档不再记录实际值） |
 | `VIP_CPS_APPKEY` / `VIP_CPS_APPSECRET` | 唯品会联盟 |
 | `JD_CPS_APPKEY` / `JD_CPS_APPSECRET` | 京东联盟 |
 | `PDD_CPS_CLIENT_ID` / `PDD_CPS_APPSECRET` | 拼多多 |
@@ -293,7 +293,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | 编号 | 级别 | 问题 | 位置 |
 |---|---|---|---|
 | P1-1 | 高 | `sql/init.sql` 表名（users/verification_codes）与代码实际使用的表（adp_user/adp_order/adp_banner/adp_goods）不一致，且 `adp_user / adp_order / adp_banner / adp_goods` 四张业务表均缺正式 DDL，新环境无法一键建库 | `sql/init.sql` |
-| P1-2 | 高 | ~~**敏感信息硬编码**：DeepSeek API Key 明文写死；JWT 密钥写死 `19910416`、DB 密码有默认明文兜底~~（**2026-11-15 已修复（v1.9）**：AI 聊天模块整体移除；C 端 `JWT_SECRET` 必填走 .env（config 加载期 fail-fast，与 ADMIN_JWT_SECRET 同标准）；DB user/password/database 取消默认兜底；本地与服务器 .env 均需配置。注：`19910416` 作为 JWT_SECRET 仍在 git 历史中，建议择期轮换） | ~~`services/aiService.js`~~（已删）、`services/adpUserService.js`、`config/config.js` |
+| P1-2 | 高 | ~~**敏感信息硬编码**：DeepSeek API Key 明文写死；JWT 密钥、DB 密码有默认明文兜底~~（**2026-11-15 已修复（v1.9）**：AI 聊天模块整体移除；C 端 `JWT_SECRET` 必填走 .env（config 加载期 fail-fast，与 ADMIN_JWT_SECRET 同标准）；DB user/password/database 取消默认兜底。注：旧密钥值仍在 git 历史中（公开仓库），轮换处置见 B-5，本文档不再记录实际值） | ~~`services/aiService.js`~~（已删）、`services/adpUserService.js`、`config/config.js` |
 | P1-3 | 中 | ~~订单同步任务写死补拉日期且以 IIFE 方式运行~~（**2026-11-15 已修复（v1.9）**：两个同步脚本改为 CLI 传参 `node job/xxxSync.js [startDate] [endDate]`，缺省拉取昨天~今天；cron 调度仍未启用，见 B-3） | `job/vipOrderSync.js`、`job/meituanOrderSync.js` |
 | P2-1 | 中 | ~~`adpTranUrlService.tranUrl` 中 pdd 分支调用的 `pddTranUrl` 函数整体被注释，遇到拼多多链接会抛运行时错误~~（2026-10-05 已修复：pdd 按链接转链恢复实现，含 error_response 错误处理） | `services/adpTranUrlService.js` |
 | P2-2 | 中 | 所有 API 无 JWT 鉴权中间件，token 签发后未校验；订单/转链等接口可被任意调用 | `app.js` |
@@ -317,7 +317,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 | B-2 | 京东 CPS 服务接入路由 | 中 | 待排期 |
 | B-3 | 订单同步任务统一调度：~~支持 CLI 参数传日期补拉~~ + 恢复 cron 定时 + 增加平台参数（vip/meituan/jd/tb） | 高 | 🔄 部分完成（2026-11-15 v1.9：CLI 传参已上线 `npm run sync:vip` / `npm run sync:meituan [startDate] [endDate]`；cron 定时与平台参数未做） |
 | B-4 | JWT 鉴权中间件接入受保护接口（订单、转链等） | 高 | 待排期 |
-| B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | 🔄 大部分完成（2026-11-15 v1.9：AI 模块已删、C 端 `JWT_SECRET` 与 DB 配置强制走 .env（fail-fast）、CPS 业务标识集中收敛 config；**剩余：轮换历史泄漏的密钥/`19910416`**） |
+| B-5 | 敏感信息治理：API Key/JWT Secret 全部迁入 .env，轮换已泄漏密钥 | 高 | ✅ 已完成（2026-11-15：AI 模块已删、`JWT_SECRET` 与 DB 配置强制走 .env（fail-fast）、CPS 业务标识集中收敛 config；历史泄漏密钥已全部处置——DeepSeek key 已在平台作废、DB 密码与 JWT_SECRET 已轮换、仓库已转私有；文档中明文密钥值已清除。可选后续：BFG 清洗 git 历史） |
 | B-6 | sql/init.sql 补全 adp_user / adp_order / adp_banner / ~~verification_codes~~ 正式 DDL 并与代码对齐 | 高 | 待排期 |
 | B-7 | ~~AI 导购：接入真实 uid/pid 上下文、扩展 pdd/taobao 搜索工具、会话持久化~~ | 中 | ❌ 已下线（2026-11-15 v1.9：AI 聊天三件套整体移除，openai 依赖卸载；需求重启时从 git 历史找回） |
 | B-8 | 转链服务恢复并完善 pdd 分支，增加淘宝链接识别 | 中 | 🔄 进行中（pdd"按商品 ID"与"按 URL"转链均已恢复，双平台授权预检已上线（2026-10-05）；仅剩淘宝链接识别未做） |
