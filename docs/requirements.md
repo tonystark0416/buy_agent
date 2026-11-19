@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.15
-- 更新日期：2026-11-16
+- 文档版本：v1.16
+- 更新日期：2026-11-20
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
 
@@ -344,6 +344,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-20 | v1.16 | **iOS/Android App 端启动（uni-app 跨端方案）**。① 技术选型：跨端 uni-app（Vue3）而非 iOS 原生——单人开发、界面同步小程序、迟早双端；非 WebView 套壳（原生渲染，规避 App Store 4.3 风险）；② 新增 `clients/uni-app/` 独立工程（Vite CLI 模式，依赖版本已锁定）：设计系统从小程序 app.wxss 平移（iOS 令牌/分段控件/卡片）、API 层移植（uni.request + 登录态 uid/token 本地持久化）；③ 7 页移植完成：登录（手机号+验证码主通道，复用 v1.12 建好的 sendVerificationCode/loginByCode，未接 SMS 时 devCode 自动填入方便联调）、首页（唯品好货/美团热销/多多好货三分段，字段映射与小程序一致）、吃喝玩乐（banner+美团团购列表分页）、我的订单（平台分段+状态文案）、搜索、唯品商品详情（轮播/详情图/底部购买栏→genUrlByGoodsId 转链→系统浏览器打开）、美团团购详情（referralLinkMap 优先取 http 链接）；④ app-plus 目标构建通过（`npm run build:app` → dist/build/app，HBuilderX 导入后可运行 iOS 模拟器/Android 真机体验）；⑤ App 登录不带 openid（后端 loginByCode 已兼容），同手机号小程序/App 天然同账号；⑥ 待办：周末申请 Apple Developer/软著/App 备案后走 TestFlight 上架 | 待提交 |
 | 2026-11-16 | v1.15 | **后台订单管理：手动同步订单功能**。① 新增 `POST /api/admin/order/sync`（platform: vip/meituan 二选一，日期区间最长 30 天、不允许未来日期，异步任务立即返回 taskId，同平台互斥 400、异平台可并行，order_sn upsert 幂等）与 `GET /api/admin/order/sync/status`（单任务进度 / 最近任务列表）；② 任务管理器 `services/admin/orderSyncTaskService.js`（内存态，进程重启任务丢失可重发，幂等无害）；③ job 两脚本 `pullOrdersByDateRange` 重构：支持 onProgress 进度回调、逐小时分段「拉一段入一段库」，顺带修复美团 job 新旧 `pullOrdersByDateRange` 重名冲突（旧版引用已删函数导致同步必失败，E2E 抓出）；④ 订单管理页新增手动同步弹窗：平台单选/日期选择器（30 天跨度动态禁用 + 不允许未来日期）/进度条 2s 轮询/完成统计（拉取/新增/更新/出错/耗时）/可关弹窗后台继续运行，完成后自动刷新列表；admin-web 构建验证通过；⑤ E2E 实测全过：参数校验 400×3、发起 running、同平台互斥 400、异平台并行、进度 24/24 → success、任务列表 | 待提交 |
 | 2026-11-16 | v1.14 | **订单同步升级：5 分钟增量 + 常驻 worker + 全状态拉取**。① 架构调整：v1.13 嘅「一次性进程 + cron_restart（每天两次）」升级为**常驻 worker**（5 分钟频率下常驻更优：无 288 次进程冷启动、防重叠守卫、故障不跨轮累积）——`job/orderSyncWorker.js`（新，PM2 `cps-sync-worker`），ecosystem 两个一次性 sync 进程合并为一个 worker；② **增量窗口**：每轮拉最近 2 小时（`SYNC_RECENT_HOURS`/`SYNC_INTERVAL_MINUTES` 可调），VIP 按 `updateTimeStart/End`、美团按 `queryTimeType: 2`（**更新时间维度**，新单与老订单状态变化都覆盖；两平台 API 单次查询限 1 小时，逐小时分段合规），每日约 1,900 请求/平台；③ **每日 03:00 兜底**：worker 每天全量补拉昨天~今天一次（内部逐小时分段，窗口合规），防 API 数据延迟漏单；④ **VIP 拉单取消 status 写死**（原 `status: 0` 仅拉不合格单，为存量问题），不传即全状态（0/1/2）；`vipService.orderList` 支持 UpdateTime 透传、status 未传时字段省略；⑤ job 两脚本新增 `syncRecent()` 导出、CLI 入口 `require.main` 守卫（补拉功能不变）；⑥ 双平台 syncRecent 真 API 实测通过（2h 窗口逐小时分段、0 新单无报错）。**服务器部署：`pm2 delete buy-agent-vip-sync buy-agent-meituan-sync`（如有）→ `pm2 start ecosystem.config.js --only cps-sync-worker` → 建议手动跑一次全量补拉 `node job/vipOrderSync.js` 回补历史全状态订单** | 待提交 |
 | 2026-11-15 | v1.13 | **订单同步定时任务上线（PM2）**。① 新增 `ecosystem.config.js`（PM2 配置，入库可复现）：3 个进程——`buy-agent-api`（API 常驻）、`buy-agent-vip-sync`（每天 02:00/14:00）、`buy-agent-meituan-sync`（每天 02:30/14:30，Asia/Shanghai，与唯品会错开）；② 同步任务采用 PM2「一次性进程 + cron_restart」模式：启动 → 拉昨天~今天订单入库 → 自动退出 → 到点再拉起，每天两拉覆盖 CPS 订单状态变化（付款→结算/失效）；③ job 两个脚本补显式 `process.exit(0/1)`（MySQL 连接池阻塞事件循环，一次性模式必须显式退出），本地实测两任务跑完 exit=0；④ 日志落 `logs/pm2/*.log`（带时间戳，logs/ 已 ignore）。**注意：API 若已由宝塔 PM2 管理，用 `--only` 只启动同步任务，勿双开 3000 端口**。补拉历史日期仍用 CLI。B-3 大部分完成 | 待提交 |

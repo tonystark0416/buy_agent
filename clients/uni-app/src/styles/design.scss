@@ -1,0 +1,94 @@
+/* 共享设计系统类（iOS 风格，从小程序 app.wxss 移植） */
+
+.card {
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.section-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1C1C1E;
+}
+
+/* iOS 分段控件 */
+.ios-segment {
+  display: flex;
+  background: rgba(118, 118, 128, 0.12);
+  border-radius: 18rpx;
+  padding: 4rpx;
+  margin: 20rpx 24rpx;
+}
+
+.ios-segment__item {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: #1C1C1E;
+  padding: 14rpx 0;
+  border-radius: 14rpx;
+  transition: all 0.2s;
+}
+
+.ios-segment__item--active {
+  background: #FFFFFF;
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+/* 主按钮 */
+.btn-primary {
+  background: #007AFF;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 16rpx;
+  padding: 24rpx 0;
+  text-align: center;
+}
+
+.btn-primary--disabled {
+  opacity: 0.4;
+}
+
+/* 价格 */
+.price-text {
+  color: #FF3B30;
+  font-weight: 700;
+}
+
+.price-original {
+  color: rgba(60, 60, 67, 0.36);
+  text-decoration: line-through;
+  font-size: 22rpx;
+}
+
+/* 返利角标 */
+.rebate-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 59, 48, 0.08);
+  color: #FF3B30;
+  font-size: 20rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+  padding: 4rpx 10rpx;
+}
+
+/* 空态 / 加载态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+  color: rgba(60, 60, 67, 0.36);
+  font-size: 26rpx;
+}
+
+.load-more {
+  text-align: center;
+  color: rgba(60, 60, 67, 0.36);
+  font-size: 24rpx;
+  padding: 24rpx 0;
+}

@@ -1,0 +1,43 @@
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "首页" } },
+    { "path": "pages/life/life", "style": { "navigationBarTitleText": "吃喝玩乐", "enablePullDownRefresh": true } },
+    { "path": "pages/orders/orders", "style": { "navigationBarTitleText": "我的订单", "enablePullDownRefresh": true } },
+    { "path": "pages/login/login", "style": { "navigationBarTitleText": "登录" } },
+    { "path": "pages/search/search", "style": { "navigationBarTitleText": "搜索" } },
+    { "path": "pages/goods/goods", "style": { "navigationBarTitleText": "商品详情" } },
+    { "path": "pages/meituan-goods/meituan-goods", "style": { "navigationBarTitleText": "团购详情" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "鹏派优选",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F2F2F7"
+  },
+  "tabBar": {
+    "color": "#8E8E93",
+    "selectedColor": "#007AFF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/life/life",
+        "text": "吃喝玩乐",
+        "iconPath": "static/tabbar/life.png",
+        "selectedIconPath": "static/tabbar/life-active.png"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "我的订单",
+        "iconPath": "static/tabbar/order.png",
+        "selectedIconPath": "static/tabbar/order-active.png"
+      }
+    ]
+  }
+}
