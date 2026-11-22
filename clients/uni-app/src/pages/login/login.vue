@@ -1,7 +1,7 @@
 <template>
   <view class="login-page">
     <view class="login-hero">
-      <text class="login-hero__title">鹏派优选</text>
+      <text class="login-hero__title">值物APP</text>
       <text class="login-hero__sub">登录后购物可享返利</text>
     </view>
 

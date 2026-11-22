@@ -1,5 +1,5 @@
 {
-  "name": "鹏派优选",
+  "name": "值物APP",
   "appid": "",
   "description": "多平台 CPS 返利",
   "versionName": "0.1.0",
@@ -35,7 +35,7 @@
     "usingComponents": true
   },
   "h5": {
-    "title": "鹏派优选",
+    "title": "值物APP",
     "router": { "mode": "hash", "base": "/app/" }
   }
 }
