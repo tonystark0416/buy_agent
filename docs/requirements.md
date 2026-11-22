@@ -2,8 +2,8 @@
 
 > 本文档是 buy_agent 项目唯一的需求与迭代追踪文档。每次迭代必须同步更新本文档正文与 Change Log，否则视为迭代未完成。
 
-- 文档版本：v1.16
-- 更新日期：2026-11-20
+- 文档版本：v1.17
+- 更新日期：2026-11-23
 - 维护人：liuweizhao（AI 辅助迭代）
 - 仓库：https://github.com/tonystark0416/buy_agent.git（本地路径 `/Users/liuweizhao/Desktop/buy_agent`，分支 `main`；**自 v1.8 起为 monorepo，含后端 + 后台前端 + C 端小程序，见 2.1 目录结构**）
 
@@ -89,7 +89,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 - 手机号唯一（`uk_phone`）；openid 与用户一对一绑定，但 `register` 接口**不校验 openid 是否已被其他用户绑定**，会直接覆盖（风险见 P2-3）；`loginByOpenid` 仅在 openid 未绑定时返回错误；
 - 注册成功即签发 JWT（含 userId、phone，1 小时有效期）；
 - 手机号已注册时调用注册接口视为登录，并静默更新 openid；若入参 `openid` 为空字符串/null，会把该用户已绑定的 openid 清空（建议对空值做判断，见 P2-3）；
-- 验证码通道（2026-11-15 新增，App 预留）：验证码 5 分钟有效、6 位数字、一次性使用、同号 60s 重发冷却；当前为**单实例内存存储**（Map），多实例部署需迁移 Redis/DB；未配置 `SMS_PROVIDER` 时 `sendVerificationCode` 响应附 `devCode`（仅限开发联调，生产接入短信服务商后自动关闭）。
+- 验证码通道（2026-11-15 新增，App 预留）：验证码 5 分钟有效、6 位数字、一次性使用、同号 60s 重发冷却；当前为**单实例内存存储**（Map），多实例部署需迁移 Redis/DB；未配置 `SMS_PROVIDER` 时 `sendVerificationCode` 响应附 `devCode`（仅限开发联调，生产接入短信服务商后自动关闭）。**2026-11-23 联调期过渡**：`loginByCode` 接受固定验证码 `000000`（跳过验证码库校验，可注册可登录），供 App/小程序在短信服务商接入前体验——**接通 SMS 后必须移除该分支**（代码内已留 TODO 标记）。
 
 **数据表**：`adp_user`（id、phone、password、nickname、avatar、**openid（2026-11-15 补列，此前物理缺失导致 openid 登录恒失败，见 P1-4）**）。
 
@@ -240,7 +240,29 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 **响应格式 v2（2026-11-15 起，随 v1.9 后端整治同步上线）**：C 端全部接口统一为 `{ code: 200, msg: 'ok', data: ... }`；HTTP 错误 4xx/5xx + `{ code, msg, data: null }`；业务码 -1（平台未授权，`data.needAuthPlatform`）/ -2（不支持的平台）HTTP 200 下发。**版本协商**：小程序 `utils/api.js` 所有请求携带请求头 `X-Client-Ver: 2` 才获得新格式；未携带的历史版本小程序自动回落 legacy 旧结构（线上旧版不受影响），旧版全部淘汰后可移除后端各 controller 的 legacy 分支（`utils/response.js`）。小程序 api.js 作为适配层把 v2 响应解包后**保持页面层契约不变**，页面无需改动。iOS / Android App 未来直接消费 v2 格式。
 
-**后续规划**：iOS / Android 原生 App 将分别落在 `clients/ios/`、`clients/android/`（预留，未开工）。
+**后续规划**：~~iOS / Android 原生 App 分别落在 `clients/ios/`、`clients/android/`（预留）~~ 已于 2026-11-20 改为 **uni-app 跨端方案**（见 3.14），占位目录已删除。
+
+---
+
+### 3.14 客户端 · 值物APP（clients/uni-app/，2026-11-20 启动）
+
+**需求描述**：iOS/Android 双端 App，uni-app（Vue3 + Vite CLI 模式）跨端方案——一份代码编译原生 App（非 WebView 套壳），界面与能力对齐小程序端：手机号验证码登录、首页三分段商品流（唯品会/美团/拼多多）、链接转链、今日最优惠活动、吃喝玩乐、订单查询、搜索、商品详情与转链购买（系统浏览器打开）。
+
+**关键约定**：
+
+1. 目录 `clients/uni-app/`（Vite CLI 模式，`npm run build:app` 产出 `dist/build/app`；开发期 HBuilderX 导入项目根目录运行到模拟器/真机）；
+2. 接口 Host 唯一入口：`src/utils/config.js` 的 `BASE_URL`（同小程序一致指向正式服务器）；API 层统一 `src/utils/api.js`（uni.request 版，携带 `X-Client-Ver: 2` 消费 v2 响应），顶部 `API_DEBUG` 开关控制请求日志（URL/耗时/状态/响应摘要，打印到 HBuilderX 控制台）；
+3. 登录态：`src/utils/auth.js`——uid/token 本地持久化（uni storage），`ensureLogin()` 统一登录闸门；App 登录不带 openid，同手机号与小程序天然同账号；
+4. 转链成功后 `plus.runtime.openURL` 系统浏览器打开（App 端无小程序授权跳转流程，美团/vip 坑位直接取可跳转链接）；
+5. 设计系统：`src/styles/design.scss` + `src/uni.scss`——小程序 iOS 设计令牌全量平移（分组底/白卡圆角/iOS 分段控件/系统蓝）；
+6. 页面清单（`src/pages.json`）：登录、首页、吃喝玩乐、我的订单、搜索、唯品商品详情、美团团购详情 + 三 tab 底栏。
+
+**联调/上架前置项**：
+
+- 联调期验证码：`loginByCode` 接受固定验证码 `000000`（见 3.12，SMS 接入后移除）；
+- 短信服务商：暂定腾讯云 SMS（个人认证可发验证码、100 条免费额度；签名「值物APP」+ 验证码模板审核中）；
+- iOS 真机/上架：待 Apple Developer 账号（$99/年）→ 云打包/证书签名 → TestFlight；软著、App 备案同步申请；
+- 开发机环境：iOS 模拟器需 universal 架构运行时（HBuilderX 标准基座为 x86_64；iOS 27.2 arm64-only 不兼容，用 iOS 18.2 Simulator Runtime）；开发机已卸载会拦截 `launchd_sim` 的 Datacloak（天融信 DACS）。
 
 ---
 
@@ -344,6 +366,7 @@ buy_agent 是一个**多平台 CPS（按成交计费）导购返佣聚合后端�
 
 | 日期 | 版本 | 变更内容 | 关联提交 |
 |---|---|---|---|
+| 2026-11-23 | v1.17 | **App 端 UI 对齐小程序 + 联调期验证码**。① 首页完整重写：补链接转链区（textarea+粘贴+tranUrl 转链+结果卡）、今日最优惠活动坑位（indexBannerList，≥2 条显示；美团坑转链/唯品坑直开）、瀑布流（column-count 双列 + widthFix 原比例图）、「券后」价格行；API 层新增 getIndexActivityBanners/convertLink + API_DEBUG 请求日志开关（HBuilderX 控制台打印 URL/耗时/状态/响应摘要）；② 订单页重构为三段式卡片（头单号+状态色点/体商品信息+平台 tag/尾实付+佣金胶囊），触底自动加载替代按钮；③ 美团详情页重写：全宽 750rpx 大图、价格卡内返利行（¥+比例 tag）、独立门店卡（logo+距离+可用门店数）、购买须知卡；④ 唯品详情页重写：轮播（指示点+自动播放）、priceDesc 按「-」拆段红底高亮、品牌/店铺/分类/销量元信息卡、蓝底标签 chips、通栏详情图；**修复 pid 写死 '123213' → 改用详情接口真实 goods.pid**（影响佣金归属）；⑤ 产品名纠正：App 端「鹏派优选」→「值物APP」（manifest/pages.json/登录页，以小程序品牌为准）；⑥ 清理：删除 clients/ios、clients/android 占位 README，uni-app dist/unpackage 构建产物移出 git；⑦ **后端联调期固定验证码 000000**（loginByCode 跳过校验，可注册可登录；SMS 接入后移除，见 3.12 验证码通道）；⑧ 环境梳理：确认开发机 Datacloak（天融信 DACS）拦截 launchd_sim——卸载后 iOS 模拟器正常；iOS 27.2 运行时 arm64-only 与 HBuilderX x86_64 基座不兼容，已导入 iOS 18.2 universal 运行时解决；短信服务商选型暂定腾讯云 SMS（个人认证 100 条免费，签名/模板审核中） | 待提交 |
 | 2026-11-20 | v1.16 | **iOS/Android App 端启动（uni-app 跨端方案）**。① 技术选型：跨端 uni-app（Vue3）而非 iOS 原生——单人开发、界面同步小程序、迟早双端；非 WebView 套壳（原生渲染，规避 App Store 4.3 风险）；② 新增 `clients/uni-app/` 独立工程（Vite CLI 模式，依赖版本已锁定）：设计系统从小程序 app.wxss 平移（iOS 令牌/分段控件/卡片）、API 层移植（uni.request + 登录态 uid/token 本地持久化）；③ 7 页移植完成：登录（手机号+验证码主通道，复用 v1.12 建好的 sendVerificationCode/loginByCode，未接 SMS 时 devCode 自动填入方便联调）、首页（唯品好货/美团热销/多多好货三分段，字段映射与小程序一致）、吃喝玩乐（banner+美团团购列表分页）、我的订单（平台分段+状态文案）、搜索、唯品商品详情（轮播/详情图/底部购买栏→genUrlByGoodsId 转链→系统浏览器打开）、美团团购详情（referralLinkMap 优先取 http 链接）；④ app-plus 目标构建通过（`npm run build:app` → dist/build/app，HBuilderX 导入后可运行 iOS 模拟器/Android 真机体验）；⑤ App 登录不带 openid（后端 loginByCode 已兼容），同手机号小程序/App 天然同账号；⑥ 待办：周末申请 Apple Developer/软著/App 备案后走 TestFlight 上架 | 待提交 |
 | 2026-11-16 | v1.15 | **后台订单管理：手动同步订单功能**。① 新增 `POST /api/admin/order/sync`（platform: vip/meituan 二选一，日期区间最长 30 天、不允许未来日期，异步任务立即返回 taskId，同平台互斥 400、异平台可并行，order_sn upsert 幂等）与 `GET /api/admin/order/sync/status`（单任务进度 / 最近任务列表）；② 任务管理器 `services/admin/orderSyncTaskService.js`（内存态，进程重启任务丢失可重发，幂等无害）；③ job 两脚本 `pullOrdersByDateRange` 重构：支持 onProgress 进度回调、逐小时分段「拉一段入一段库」，顺带修复美团 job 新旧 `pullOrdersByDateRange` 重名冲突（旧版引用已删函数导致同步必失败，E2E 抓出）；④ 订单管理页新增手动同步弹窗：平台单选/日期选择器（30 天跨度动态禁用 + 不允许未来日期）/进度条 2s 轮询/完成统计（拉取/新增/更新/出错/耗时）/可关弹窗后台继续运行，完成后自动刷新列表；admin-web 构建验证通过；⑤ E2E 实测全过：参数校验 400×3、发起 running、同平台互斥 400、异平台并行、进度 24/24 → success、任务列表 | 待提交 |
 | 2026-11-16 | v1.14 | **订单同步升级：5 分钟增量 + 常驻 worker + 全状态拉取**。① 架构调整：v1.13 嘅「一次性进程 + cron_restart（每天两次）」升级为**常驻 worker**（5 分钟频率下常驻更优：无 288 次进程冷启动、防重叠守卫、故障不跨轮累积）——`job/orderSyncWorker.js`（新，PM2 `cps-sync-worker`），ecosystem 两个一次性 sync 进程合并为一个 worker；② **增量窗口**：每轮拉最近 2 小时（`SYNC_RECENT_HOURS`/`SYNC_INTERVAL_MINUTES` 可调），VIP 按 `updateTimeStart/End`、美团按 `queryTimeType: 2`（**更新时间维度**，新单与老订单状态变化都覆盖；两平台 API 单次查询限 1 小时，逐小时分段合规），每日约 1,900 请求/平台；③ **每日 03:00 兜底**：worker 每天全量补拉昨天~今天一次（内部逐小时分段，窗口合规），防 API 数据延迟漏单；④ **VIP 拉单取消 status 写死**（原 `status: 0` 仅拉不合格单，为存量问题），不传即全状态（0/1/2）；`vipService.orderList` 支持 UpdateTime 透传、status 未传时字段省略；⑤ job 两脚本新增 `syncRecent()` 导出、CLI 入口 `require.main` 守卫（补拉功能不变）；⑥ 双平台 syncRecent 真 API 实测通过（2h 窗口逐小时分段、0 新单无报错）。**服务器部署：`pm2 delete buy-agent-vip-sync buy-agent-meituan-sync`（如有）→ `pm2 start ecosystem.config.js --only cps-sync-worker` → 建议手动跑一次全量补拉 `node job/vipOrderSync.js` 回补历史全状态订单** | 待提交 |

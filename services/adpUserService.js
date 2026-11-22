@@ -80,18 +80,22 @@ async function loginByCode({ phone, code, openid }) {
     throw new Error('验证码不能为空');
   }
 
-  const record = codeStore.get(phone);
-  if (!record) throw new Error('请先获取验证码');
-  if (Date.now() > record.expiresAt) {
+  // ===== 联调期固定验证码：000000 可直接注册/登录（跳过验证码校验）=====
+  // TODO: 短信服务商接入后（config.sms.provider 配置生效）移除此分支，恢复严格校验
+  const FIXED_DEV_CODE = '000000';
+  if (String(code).trim() !== FIXED_DEV_CODE) {
+    const record = codeStore.get(phone);
+    if (!record) throw new Error('请先获取验证码');
+    if (Date.now() > record.expiresAt) {
+      codeStore.delete(phone);
+      throw new Error('验证码已过期，请重新获取');
+    }
+    if (record.code !== String(code).trim()) {
+      throw new Error('验证码错误');
+    }
+    // 一次性使用，防重放
     codeStore.delete(phone);
-    throw new Error('验证码已过期，请重新获取');
   }
-  if (record.code !== String(code).trim()) {
-    throw new Error('验证码错误');
-  }
-
-  // 一次性使用，防重放
-  codeStore.delete(phone);
 
   // 已有账号：直接登录；携带 openid 时补绑定
   let user = await UserModel.findByPhone(phone);
