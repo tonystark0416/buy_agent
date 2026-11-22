@@ -9,6 +9,9 @@ const PLATFORM_NAMES = { vip: '唯品会', taobao: '淘宝', jd: '京东', pdd: 
 
 // ==================== 请求基础 ====================
 
+/** 接口调试日志开关：true 时每个请求打印 URL/耗时/状态/响应摘要到 HBuilderX 控制台 */
+const API_DEBUG = true
+
 function parseResponseData(data) {
   if (typeof data === 'string') {
     try { return JSON.parse(data) } catch (e) { return data }
@@ -16,20 +19,42 @@ function parseResponseData(data) {
   return data
 }
 
+function logRequest(method, url, startTime, res, err) {
+  if (!API_DEBUG) return
+  const ms = Date.now() - startTime
+  if (err) {
+    console.error(`[API] ✗ ${method} ${url.replace(BASE_URL, '')} ${ms}ms`, err.errMsg || err.message)
+    return
+  }
+  const ok = res.statusCode === 200
+  const body = typeof res.data === 'object' ? JSON.stringify(res.data).slice(0, 300) : String(res.data).slice(0, 300)
+  const logger = ok ? console.log : console.error
+  logger(`[API] ${ok ? '✓' : '✗'} ${method} ${url.replace(BASE_URL, '')} ${res.statusCode} ${ms}ms`)
+  logger(`[API] ← ${body}${body.length >= 300 ? '…' : ''}`)
+}
+
 function request(url) {
+  const t0 = Date.now()
   return new Promise((resolve, reject) => {
     uni.request({
       url,
       method: 'GET',
       timeout: 8000,
       header: { 'X-Client-Ver': '2' },
-      success: (res) => (res.statusCode === 200 ? resolve(parseResponseData(res.data)) : reject(new Error(`HTTP ${res.statusCode}`))),
-      fail: (err) => reject(err),
+      success: (res) => {
+        logRequest('GET', url, t0, res)
+        res.statusCode === 200 ? resolve(parseResponseData(res.data)) : reject(new Error(`HTTP ${res.statusCode}`))
+      },
+      fail: (err) => {
+        logRequest('GET', url, t0, null, err)
+        reject(err)
+      },
     })
   })
 }
 
 function postRequest(url, data) {
+  const t0 = Date.now()
   return new Promise((resolve, reject) => {
     uni.request({
       url,
@@ -37,8 +62,14 @@ function postRequest(url, data) {
       data,
       header: { 'X-Client-Ver': '2', 'Content-Type': 'application/json' },
       timeout: 8000,
-      success: (res) => (res.statusCode === 200 ? resolve(parseResponseData(res.data)) : reject(new Error(`HTTP ${res.statusCode}`))),
-      fail: (err) => reject(err),
+      success: (res) => {
+        logRequest('POST', url, t0, res)
+        res.statusCode === 200 ? resolve(parseResponseData(res.data)) : reject(new Error(`HTTP ${res.statusCode}`))
+      },
+      fail: (err) => {
+        logRequest('POST', url, t0, null, err)
+        reject(err)
+      },
     })
   })
 }
@@ -424,6 +455,51 @@ export async function getBanners() {
   } catch (err) {
     console.warn('[API] getBanners 失败:', err.message)
     return []
+  }
+}
+
+// ==================== 首页活动坑位 ====================
+
+/**
+ * 首页「今日最优惠」活动坑位 GET /api/banner/indexBannerList
+ * @returns {Promise<Array>} [{ id, image, title, subtitle, extraUrl, extraId, sort }]
+ */
+export async function getIndexActivityBanners() {
+  try {
+    const result = await request(`${BASE_URL}/api/banner/indexBannerList`)
+    let arr = []
+    if (result && result.code === 200 && Array.isArray(result.data)) {
+      arr = result.data
+    } else if (Array.isArray(result)) {
+      arr = result
+    } else if (result && Array.isArray(result.data)) {
+      arr = result.data
+    }
+    return arr.slice().sort((a, b) => (b.sort || 0) - (a.sort || 0))
+  } catch (err) {
+    console.warn('[API] getIndexActivityBanners 失败:', err.message)
+    return []
+  }
+}
+
+// ==================== 链接转链 ====================
+
+/**
+ * 粘贴商品链接转链 GET /api/tranUrl?uid=&source_url=
+ * @returns {Promise<Object>} { code:0, data:{ originalUrl, platform, h5_url, weapp_url, ... }, needAuthPlatform? }
+ */
+export async function convertLink(url, uid = getUid()) {
+  if (!url || !url.trim()) return { code: -1, message: '请输入商品链接' }
+  if (!uid) return { code: -1, message: '请先登录' }
+  try {
+    const query = [
+      `uid=${encodeURIComponent(uid)}`,
+      `source_url=${encodeURIComponent(url.trim())}`,
+    ].join('&')
+    return await request(`${BASE_URL}/api/tranUrl?${query}`)
+  } catch (err) {
+    console.warn('[API] convertLink 失败:', err.message)
+    return { code: -1, message: '网络异常，请重试' }
   }
 }
 

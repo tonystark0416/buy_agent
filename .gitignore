@@ -10,3 +10,7 @@ admin-web/dist/
 .codebuddy/
 # 微信开发者工具个人配置（含本地设置，不入库）
 clients/wechat-miniprogram/project.private.config.json
+
+# uni-app 构建产物（可随时重新生成）
+clients/uni-app/dist/
+clients/uni-app/unpackage/
