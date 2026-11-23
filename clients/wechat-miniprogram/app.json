@@ -6,7 +6,8 @@
     "pages/logs/logs",
     "pages/search/search",
     "pages/goods/goods",
-    "pages/meituan-goods/meituan-goods"
+    "pages/meituan-goods/meituan-goods",
+    "pages/my/my"
   ],
   "window": {
     "navigationBarTextStyle": "black",
@@ -35,6 +36,12 @@
         "text": "我的订单",
         "iconPath": "images/tabbar/order.png",
         "selectedIconPath": "images/tabbar/order-active.png"
+      },
+      {
+        "pagePath": "pages/my/my",
+        "text": "个人中心",
+        "iconPath": "images/tabbar/my.png",
+        "selectedIconPath": "images/tabbar/my-active.png"
       }
     ]
   },

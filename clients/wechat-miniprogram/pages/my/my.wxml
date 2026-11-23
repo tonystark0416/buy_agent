@@ -1,0 +1,53 @@
+<!--pages/my/my.wxml 个人中心-->
+<view class="page" style="padding-top: {{statusBarHeight + 10}}px;">
+
+  <!-- 未登录引导 -->
+  <view class="login-guide" wx:if="{{!isLoggedIn}}">
+    <view class="login-guide__avatar"><text>?</text></view>
+    <text class="login-guide__title">尚未登录</text>
+    <text class="login-guide__desc">登录后可查看订单与佣金</text>
+    <view class="login-guide__btn" hover-class="btn-hover" bindtap="onGoIndex">去首页登录</view>
+  </view>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <!-- 用户信息卡 -->
+    <view class="user-card">
+      <image wx:if="{{avatarUrl}}" class="user-card__avatar" src="{{avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="user-card__avatar user-card__avatar--placeholder">
+        <text>{{avatarText}}</text>
+      </view>
+      <view class="user-card__info">
+        <text class="user-card__name">{{nickname}}</text>
+        <text class="user-card__phone">{{phoneMasked}}</text>
+      </view>
+    </view>
+
+    <!-- 账号信息卡 -->
+    <view class="info-card">
+      <view class="info-card__row">
+        <text class="info-card__label">用户 ID</text>
+        <text class="info-card__value">{{userId}}</text>
+      </view>
+      <view class="info-card__row">
+        <text class="info-card__label">注册手机号</text>
+        <text class="info-card__value">{{phoneMasked}}</text>
+      </view>
+    </view>
+
+    <!-- 菜单卡 -->
+    <view class="menu-card">
+      <view class="menu-card__item" hover-class="item-hover" bindtap="onGoOrders">
+        <text class="menu-card__label">📦 我的订单</text>
+        <text class="menu-card__arrow">›</text>
+      </view>
+      <view class="menu-card__item" hover-class="item-hover" bindtap="onWithdraw">
+        <text class="menu-card__label">佣金提现</text>
+        <text class="menu-card__value">敬请期待</text>
+      </view>
+    </view>
+
+    <!-- 退出登录 -->
+    <view class="logout-btn" hover-class="btn-hover" bindtap="onLogout">退出登录</view>
+  </block>
+</view>
