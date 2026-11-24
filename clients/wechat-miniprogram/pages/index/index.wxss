@@ -220,18 +220,21 @@
   margin: 32rpx 32rpx 0;
 }
 
+/* 一行两个卡片入口（图上文下） */
 .activity-grid {
   display: flex;
-  flex-direction: column;
-  gap: 24rpx;
+  flex-wrap: wrap;
+  gap: 20rpx;
 }
 
 .activity-card {
+  width: calc(50% - 10rpx);
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   background: var(--ios-card);
   border-radius: var(--radius-card);
-  padding: 24rpx;
+  padding: 20rpx;
   box-shadow: var(--shadow-card);
 }
 
@@ -241,8 +244,8 @@
 }
 
 .activity-image {
-  width: 160rpx;
-  height: 160rpx;
+  width: 100rpx;
+  height: 100rpx;
   border-radius: 16rpx;
   background: var(--ios-fill);
   overflow: hidden;
@@ -258,27 +261,30 @@
 }
 
 .activity-image-placeholder {
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: var(--ios-label3);
 }
 
 .activity-head-text {
   flex: 1;
-  margin-left: 24rpx;
+  margin-left: 16rpx;
   overflow: hidden;
 }
 
 .activity-title {
   display: block;
-  font-size: 30rpx;
+  font-size: 26rpx;
   font-weight: 600;
   color: var(--ios-label);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .activity-subtitle {
   display: block;
-  margin-top: 8rpx;
-  font-size: 26rpx;
+  margin-top: 6rpx;
+  font-size: 20rpx;
   color: var(--ios-label2);
   overflow: hidden;
   text-overflow: ellipsis;

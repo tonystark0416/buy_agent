@@ -65,11 +65,11 @@
         hover-class="activity-card-hover"
         hover-stay-time="80"
       >
-        <!-- 左：商品大图（有图渲染 image，否则占位） -->
+        <!-- 左：小图标（有图渲染 image，否则占位） -->
         <view class="activity-image">
           <image wx:if="{{item.image}}" class="activity-image-img" src="{{item.image}}" mode="aspectFit" />
           <view wx:else class="activity-image-placeholder">
-            <text>商品图占位</text>
+            <text>占位</text>
           </view>
         </view>
         <!-- 右：标题/子标题 -->
